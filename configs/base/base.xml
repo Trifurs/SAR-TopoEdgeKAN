@@ -1,0 +1,97 @@
+<config>
+  <project_root type="path">.</project_root>
+  <runs_root type="path">runs/sar_topo_edge_kan</runs_root>
+  <artifacts_root type="path">artifacts/sar_topo_edge_kan</artifacts_root>
+  <device type="str">auto</device>
+  <seed type="int">20260908</seed>
+  <deterministic type="bool">false</deterministic>
+  <runtime>
+    <run_id_format type="str">%Y%m%d-%H%M%S-%f</run_id_format>
+    <train>
+      <output type="none">none</output>
+      <resume type="none">none</resume>
+      <init_checkpoint type="none">none</init_checkpoint>
+      <init_weights type="str">raw</init_weights>
+      <init_transfer type="str">strict</init_transfer>
+      <trainable_scope type="str">all</trainable_scope>
+      <allow_fingerprint_mismatch type="bool">false</allow_fingerprint_mismatch>
+      <max_train_batches type="none">none</max_train_batches>
+      <max_val_batches type="none">none</max_val_batches>
+      <allow_existing_output type="bool">false</allow_existing_output>
+    </train>
+    <evaluation>
+      <split type="str">val</split>
+      <checkpoint type="none">none</checkpoint>
+      <source_run type="none">none</source_run>
+      <output type="none">none</output>
+      <weights type="str">raw</weights>
+      <validity_mask type="none">none</validity_mask>
+      <save_predictions type="bool">false</save_predictions>
+      <max_batches type="none">none</max_batches>
+      <allow_existing_output type="bool">false</allow_existing_output>
+    </evaluation>
+    <test>
+      <output type="none">none</output>
+      <include_traditional type="bool">true</include_traditional>
+      <latest_completed_only type="bool">true</latest_completed_only>
+      <save_predictions type="bool">false</save_predictions>
+      <max_batches type="none">none</max_batches>
+      <cuda_warmup_batches type="int">1</cuda_warmup_batches>
+      <allow_existing_output type="bool">false</allow_existing_output>
+    </test>
+    <random_seed_validation>
+      <default_k type="int">5</default_k>
+      <seed_stride type="int">1009</seed_stride>
+      <require_cuda type="bool">true</require_cuda>
+      <worker_mkl_threading_layer type="str">GNU</worker_mkl_threading_layer>
+    </random_seed_validation>
+  </runtime>
+  <training>
+    <epochs type="int">200</epochs>
+    <minimum_epochs type="int">60</minimum_epochs>
+    <batch_size type="int">12</batch_size>
+    <gradient_accumulation_steps type="int">1</gradient_accumulation_steps>
+    <num_workers type="int">8</num_workers>
+    <persistent_workers type="bool">true</persistent_workers>
+    <prefetch_factor type="int">2</prefetch_factor>
+    <drop_last type="bool">false</drop_last>
+    <non_blocking type="bool">true</non_blocking>
+    <amp type="bool">true</amp>
+    <amp_dtype type="str">bfloat16</amp_dtype>
+    <grad_clip_norm type="float">1.0</grad_clip_norm>
+    <validation_interval type="int">1</validation_interval>
+    <min_delta type="float">0.0</min_delta>
+    <early_stop_patience type="int">30</early_stop_patience>
+    <best_metric type="str">balanced_composite_error_m</best_metric>
+    <best_weights type="str">raw</best_weights>
+    <ema_enabled type="bool">false</ema_enabled>
+    <selection_depth_stratification type="str">primary</selection_depth_stratification>
+  </training>
+  <optimizer>
+    <name type="str">adamw</name>
+    <learning_rate type="float">0.0002</learning_rate>
+    <weight_decay type="float">0.00005</weight_decay>
+    <beta1 type="float">0.9</beta1>
+    <beta2 type="float">0.999</beta2>
+    <epsilon type="float">0.00000001</epsilon>
+    <amsgrad type="bool">false</amsgrad>
+  </optimizer>
+  <scheduler>
+    <name type="str">cosine_with_warmup</name>
+    <warmup_epochs type="int">5</warmup_epochs>
+    <minimum_learning_rate type="float">0.000001</minimum_learning_rate>
+  </scheduler>
+  <logging>
+    <csv type="bool">true</csv>
+    <tensorboard type="bool">true</tensorboard>
+    <tensorboard_flush_seconds type="int">30</tensorboard_flush_seconds>
+    <progress_bar type="bool">true</progress_bar>
+    <show_python_warnings type="bool">true</show_python_warnings>
+    <log_every_steps type="int">10</log_every_steps>
+  </logging>
+  <checkpoint>
+    <save_last type="bool">true</save_last>
+    <save_best type="bool">true</save_best>
+    <strict_fingerprint type="bool">true</strict_fingerprint>
+  </checkpoint>
+</config>

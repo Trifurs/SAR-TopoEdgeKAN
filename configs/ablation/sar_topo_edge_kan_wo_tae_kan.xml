@@ -1,0 +1,14 @@
+<config>
+  <include path="../sar_topo_edge_kan.xml" />
+  <run_name type="str">sar_topo_edge_kan_wo_tae_kan</run_name>
+  <model>
+    <topographic_affinity_enabled type="bool">false</topographic_affinity_enabled>
+  </model>
+  <ablation>
+    <variant_id type="str">wo_tae_kan</variant_id>
+    <display_name type="str">SAR-TopoEdgeKAN w/o TAE-KAN</display_name>
+    <sequence_step type="int">1</sequence_step>
+    <removed_modules type="list" item_type="str"><item>TAE-KAN</item></removed_modules>
+    <training_rule type="str">factorial_removal_retrain_from_scratch_with_matched_protocol</training_rule>
+  </ablation>
+</config>

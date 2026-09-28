@@ -1,0 +1,16 @@
+<config>
+  <include path="../../base/base.xml" />
+  <include path="../../base/datasets/flooddepthnet_s1_terrain.xml" />
+  <include path="../../base/unified_protocol.xml" />
+  <run_name type="str">resnet18_depth_regression</run_name>
+  <model>
+    <name type="str">resnet18_depth_regression</name>
+    <display_name type="str">ResNet18 Flood-Depth Regression</display_name>
+    <input_schema type="str">s1_terrain_range</input_schema>
+    <input_channels type="int">10</input_channels>
+    <flood_support type="str">valid_depth_mask</flood_support>
+    <depth_epsilon type="float">0.001</depth_epsilon>
+    <uncertainty_scale_m type="float">0.35</uncertainty_scale_m>
+    <depth_output_semantics type="str">conditional_positive</depth_output_semantics>
+  </model>
+</config>

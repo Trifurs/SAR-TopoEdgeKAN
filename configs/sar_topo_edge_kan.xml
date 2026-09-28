@@ -1,0 +1,83 @@
+<config>
+  <include path="base/base.xml" />
+  <include path="base/datasets/flooddepthnet_s1_terrain.xml" />
+  <include path="base/unified_protocol.xml" />
+  <run_name type="str">sar_topo_edge_kan</run_name>
+  <inference>
+    <nodata type="float">-9999.0</nodata>
+    <save_geotiff type="bool">true</save_geotiff>
+    <save_visualization type="bool">true</save_visualization>
+  </inference>
+  <model>
+    <name type="str">sar_topo_edge_kan</name>
+    <display_name type="str">SAR-TopoEdgeKAN</display_name>
+    <formal_name type="str">SAR-based Topographic Edge Kolmogorov-Arnold Network</formal_name>
+    <known_flood_range_enabled type="bool">true</known_flood_range_enabled>
+    <flood_support type="str">valid_depth_mask</flood_support>
+    <known_range_hydrostatic_enabled type="bool">true</known_range_hydrostatic_enabled>
+    <hydrostatic_boundary_quantile type="float">0.25</hydrostatic_boundary_quantile>
+    <hydrostatic_minimum_depth_m type="float">0.10</hydrostatic_minimum_depth_m>
+    <hydrostatic_componentwise type="bool">true</hydrostatic_componentwise>
+    <hydrostatic_residual_max_log_abs type="float">5.0</hydrostatic_residual_max_log_abs>
+    <channels type="list" item_type="int"><item>24</item><item>48</item><item>96</item><item>144</item></channels>
+    <temporal_change_encoder type="str">joint</temporal_change_encoder>
+    <residual_block type="str">spatial</residual_block>
+    <sar_residual_block type="str">spatial</sar_residual_block>
+    <terrain_residual_block type="str">inverted</terrain_residual_block>
+    <decoder_residual_block type="str">spatial</decoder_residual_block>
+    <dropout type="float">0.05</dropout>
+    <group_norm_groups type="int">8</group_norm_groups>
+    <terrain_pixel_size_m type="float">20.0</terrain_pixel_size_m>
+    <ground_proxy_kernel_size type="int">9</ground_proxy_kernel_size>
+    <physics_elevation type="str">z_ground_proxy</physics_elevation>
+    <terrain_pyramid_mode type="str">hierarchical</terrain_pyramid_mode>
+    <terrain_refine_enabled type="bool">true</terrain_refine_enabled>
+    <topographic_affinity_enabled type="bool">true</topographic_affinity_enabled>
+    <graph_feature_stride type="int">8</graph_feature_stride>
+    <graph_heads type="int">2</graph_heads>
+    <kan_grid_size type="int">4</kan_grid_size>
+    <kan_spline_order type="int">3</kan_spline_order>
+    <kan_gamma_init_effective type="float">0.0</kan_gamma_init_effective>
+    <kan_gamma_max type="float">0.04</kan_gamma_max>
+    <kan_gamma_parameterization type="str">signed</kan_gamma_parameterization>
+    <kan_drop_path_probability type="float">0.0</kan_drop_path_probability>
+    <latent_compatibility_enabled type="bool">true</latent_compatibility_enabled>
+    <graph_path_barrier_mode type="str">full_resolution</graph_path_barrier_mode>
+    <graph_feature_centers type="list" item_type="float"><item>0.0</item><item>0.0</item><item>0.0</item><item>0.0</item><item>0.0</item><item>1.0</item></graph_feature_centers>
+    <graph_feature_scales type="list" item_type="float"><item>0.10</item><item>0.10</item><item>1.0</item><item>1.0</item><item>1.0</item><item>0.5</item></graph_feature_scales>
+    <decoder_widths type="list" item_type="int"><item>96</item><item>64</item><item>48</item><item>32</item></decoder_widths>
+    <decoder_skip_fusion type="str">additive</decoder_skip_fusion>
+    <decoder_nested_refinement type="str">all</decoder_nested_refinement>
+    <global_context_enabled type="bool">true</global_context_enabled>
+    <context_residual_init type="float">0.0</context_residual_init>
+    <context_residual_max type="float">0.5</context_residual_max>
+    <context_residual_parameterization type="str">signed</context_residual_parameterization>
+    <topographic_context_scales_m type="list" item_type="float"><item>320.0</item><item>1280.0</item><item>5120.0</item></topographic_context_scales_m>
+    <global_depth_calibration_enabled type="bool">false</global_depth_calibration_enabled>
+    <global_depth_calibration_hidden type="int">32</global_depth_calibration_hidden>
+    <global_depth_calibration_dropout type="float">0.0</global_depth_calibration_dropout>
+    <global_depth_calibration_max_scale_residual type="float">0.25</global_depth_calibration_max_scale_residual>
+    <global_depth_calibration_max_bias_residual type="float">1.0</global_depth_calibration_max_bias_residual>
+    <global_depth_calibration_strength type="float">2.0</global_depth_calibration_strength>
+    <global_depth_calibration_scale_strength type="float">1.8</global_depth_calibration_scale_strength>
+    <global_depth_calibration_bias_strength type="float">2.0</global_depth_calibration_bias_strength>
+    <depth_range_calibration_enabled type="bool">false</depth_range_calibration_enabled>
+    <depth_range_calibration_width type="int">16</depth_range_calibration_width>
+    <depth_range_calibration_max_scale_residual type="float">4.0</depth_range_calibration_max_scale_residual>
+    <depth_range_calibration_max_bias_residual type="float">3.0</depth_range_calibration_max_bias_residual>
+    <depth_range_calibration_tail_threshold_m type="float">1.5</depth_range_calibration_tail_threshold_m>
+    <depth_range_calibration_tail_temperature_m type="float">0.10</depth_range_calibration_tail_temperature_m>
+    <depth_range_calibration_strength type="float">1.0</depth_range_calibration_strength>
+    <depth_range_calibration_mode type="str">depth_log_scale</depth_range_calibration_mode>
+    <auxiliary_count type="int">1</auxiliary_count>
+    <auxiliary_stage type="int">0</auxiliary_stage>
+    <uncertainty_epsilon type="float">0.001</uncertainty_epsilon>
+    <uncertainty_maximum type="float">5.0</uncertainty_maximum>
+    <depth_output_semantics type="str">conditional_positive</depth_output_semantics>
+    <depth_initialization_mode type="str">train_positive_median</depth_initialization_mode>
+    <depth_initialization_bias type="float">0.0</depth_initialization_bias>
+    <uncertainty_initial_scale_m type="float">0.35</uncertainty_initial_scale_m>
+    <uncertainty_head_enabled type="bool">false</uncertainty_head_enabled>
+    <diagnostics_enabled type="bool">false</diagnostics_enabled>
+  </model>
+</config>

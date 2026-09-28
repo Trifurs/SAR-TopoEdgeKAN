@@ -1,0 +1,14 @@
+<config>
+  <include path="../../base/base.xml" />
+  <include path="../../base/datasets/flooddepthnet_s1_terrain.xml" />
+  <run_name type="str">tsa</run_name>
+  <compare>
+    <method type="str">tsa</method>
+    <display_name type="str">TSA</display_name>
+    <flood_support type="str">valid_depth_mask</flood_support>
+    <terrain_band type="str">elevation_m_DSM</terrain_band>
+  </compare>
+  <loss>
+    <depth_stratification_edges_m type="none">none</depth_stratification_edges_m>
+  </loss>
+</config>
