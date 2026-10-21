@@ -1,0 +1,14 @@
+<config>
+  <include path="common.xml" />
+  <run_name type="str">discuss_prior_only</run_name>
+  <model>
+    <display_name type="str">Hydrostatic prior only (no training)</display_name>
+    <name type="str">hydrostatic_prior_only</name>
+    <topographic_affinity_enabled type="bool">false</topographic_affinity_enabled>
+    <depth_initialization_mode type="str">configured</depth_initialization_mode>
+    <discuss>
+      <architecture type="str">hydrostatic_prior_only</architecture>
+      <trainable type="bool">false</trainable>
+    </discuss>
+  </model>
+</config>

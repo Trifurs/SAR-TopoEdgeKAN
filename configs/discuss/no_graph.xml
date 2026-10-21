@@ -1,0 +1,8 @@
+<config>
+  <include path="common.xml" />
+  <run_name type="str">discuss_no_graph</run_name>
+  <model>
+    <display_name type="str">SAR-TopoEdgeKAN without graph</display_name>
+    <topographic_affinity_enabled type="bool">false</topographic_affinity_enabled>
+  </model>
+</config>

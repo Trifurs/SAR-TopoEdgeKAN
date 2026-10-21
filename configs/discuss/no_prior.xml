@@ -1,0 +1,8 @@
+<config>
+  <include path="common.xml" />
+  <run_name type="str">discuss_no_prior</run_name>
+  <model>
+    <display_name type="str">SAR-TopoEdgeKAN without hydrostatic prior</display_name>
+    <known_range_hydrostatic_enabled type="bool">false</known_range_hydrostatic_enabled>
+  </model>
+</config>

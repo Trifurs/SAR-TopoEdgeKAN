@@ -1,0 +1,7 @@
+<config>
+  <include path="common.xml" />
+  <run_name type="str">discuss_full</run_name>
+  <model>
+    <display_name type="str">SAR-TopoEdgeKAN (discussion reference)</display_name>
+  </model>
+</config>

@@ -108,6 +108,12 @@ def run_from_config(config_path: Path) -> Path:
 
     path = config_path.expanduser().resolve(strict=True)
     config = load_config(path)
+    discussion = config.get("model", {}).get("discuss", {})
+    if discussion.get("enabled") and not discussion.get("trainable", True):
+        raise RuntimeConfigError(
+            "This discussion model has no training stage. Use "
+            "`python tools/discuss/run_experiments.py prior` to evaluate it."
+        )
     kind, identifier = configured_model_kind(config)
     run_id = started_at_run_id(config)
     if kind == "traditional":

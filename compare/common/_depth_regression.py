@@ -35,7 +35,7 @@ def prepare_comparison_tensor(batch: Mapping[str, Any], schema: str) -> tuple[to
     """Assemble inputs and the direct ``valid_depth_mask`` flood-range channel.
 
     ``valid_depth_mask`` is an explicit experimental input for these comparison
-    methods, not a predicted range and not an input to SAR-TopoEdgeKAN.  It is
+    methods and SAR-TopoEdgeKAN under the known-range protocol. It is
     returned separately as well so every architecture can constrain its final
     depth output to exactly the supplied range.
     """

@@ -1,0 +1,10 @@
+<config>
+  <include path="common.xml" />
+  <run_name type="str">discuss_linear_edges</run_name>
+  <model>
+    <display_name type="str">SAR-TopoEdgeKAN (linear edge function)</display_name>
+    <discuss>
+      <edge_function type="str">linear</edge_function>
+    </discuss>
+  </model>
+</config>

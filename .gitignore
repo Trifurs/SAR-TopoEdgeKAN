@@ -6,3 +6,5 @@ __pycache__/
 runs/
 artifacts/
 *.log
+/local/
+/AGENTS.md

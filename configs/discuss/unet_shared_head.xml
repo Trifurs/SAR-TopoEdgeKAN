@@ -1,0 +1,17 @@
+<config>
+  <include path="common.xml" />
+  <run_name type="str">discuss_unet_shared_head</run_name>
+  <model>
+    <display_name type="str">U-Net (matched conditional-depth head)</display_name>
+    <name type="str">unet_depth_regression</name>
+    <known_range_hydrostatic_enabled type="bool">false</known_range_hydrostatic_enabled>
+    <topographic_affinity_enabled type="bool">false</topographic_affinity_enabled>
+    <input_schema type="str">discuss_shared_observations</input_schema>
+    <input_channels type="int">21</input_channels>
+    <channels type="list" item_type="int"><item>24</item><item>48</item><item>96</item><item>144</item><item>192</item></channels>
+    <discuss>
+      <architecture type="str">unet_depth_regression</architecture>
+      <head_mode type="str">shared_direct</head_mode>
+    </discuss>
+  </model>
+</config>

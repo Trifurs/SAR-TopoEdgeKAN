@@ -1,0 +1,18 @@
+<config>
+  <include path="common.xml" />
+  <efficiency>
+    <groups type="list" item_type="str"><item>input</item><item>graph</item><item>prior</item></groups>
+    <batch_sizes type="list" item_type="int"><item>1</item><item>12</item></batch_sizes>
+    <warmup_iterations type="int">10</warmup_iterations>
+    <measurement_iterations type="int">100</measurement_iterations>
+    <repetitions type="int">3</repetitions>
+    <checkpoint_seed_index type="int">1</checkpoint_seed_index>
+    <split type="str">test</split>
+    <precision type="str">bfloat16</precision>
+    <patch_size type="int">256</patch_size>
+    <require_checkpoint type="bool">true</require_checkpoint>
+    <profile_supported_flops type="bool">true</profile_supported_flops>
+    <profile_stages type="bool">true</profile_stages>
+    <output_root type="path">runs/sar_topo_edge_kan/discuss/efficiency</output_root>
+  </efficiency>
+</config>

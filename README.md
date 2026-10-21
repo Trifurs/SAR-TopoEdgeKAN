@@ -51,3 +51,5 @@ python test.py runs/sar_topo_edge_kan/train
 ```
 
 See [model structure](docs/MODEL.md), [comparison protocol](docs/COMPARISON_PROTOCOL.md), and [comparison sources](docs/COMPARISON_SOURCES.md).
+
+Optional publication controls for matched inputs, edge-KAN specificity, hydrostatic/SAR contributions and inference efficiency are documented in [discussion experiments](docs/discuss/README.md). They use separate configurations and are not added to the default experiment catalog.

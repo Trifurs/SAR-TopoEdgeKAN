@@ -1,0 +1,10 @@
+<config>
+  <include path="common.xml" />
+  <run_name type="str">discuss_fixed_edges</run_name>
+  <model>
+    <display_name type="str">SAR-TopoEdgeKAN (fixed edge function)</display_name>
+    <discuss>
+      <edge_function type="str">fixed</edge_function>
+    </discuss>
+  </model>
+</config>

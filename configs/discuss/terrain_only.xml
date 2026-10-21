@@ -1,0 +1,10 @@
+<config>
+  <include path="common.xml" />
+  <run_name type="str">discuss_terrain_only</run_name>
+  <model>
+    <display_name type="str">Terrain and known-range model (SAR removed)</display_name>
+    <discuss>
+      <observation_mode type="str">terrain_only</observation_mode>
+    </discuss>
+  </model>
+</config>

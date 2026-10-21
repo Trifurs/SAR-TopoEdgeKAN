@@ -241,6 +241,15 @@ def evaluate_loader(
             samples=int(outputs["depth"].shape[0]),
             output_pixels=int(outputs["depth"].numel()),
         )
+        if "physical_features" not in outputs and hasattr(input_model, "discussion_model_config"):
+            from models.discuss.inputs import evaluation_terrain_features
+
+            # Shared evaluation diagnostics are not part of comparator inference.
+            outputs["physical_features"] = evaluation_terrain_features(
+                model_inputs,
+                input_model.discussion_raw_names,
+                input_model.discussion_model_config,
+            )
         with torch.autocast(
             device_type=device.type,
             enabled=amp_enabled and device.type == "cuda",
@@ -417,7 +426,7 @@ def evaluate_loader(
         getattr(
             getattr(unwrapped, "heads", None),
             "depth_output_semantics",
-            "unknown",
+            getattr(unwrapped, "depth_output_semantics", "unknown"),
         )
     )
     summary["evaluation_validity_mask"] = (

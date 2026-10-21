@@ -15,6 +15,10 @@ def configured_model_kind(config: Mapping[str, Any]) -> tuple[str, str]:
     model = config.get("model")
     if isinstance(model, Mapping):
         identifier = str(model.get("name", ""))
+        if bool(model.get("discuss", {}).get("enabled", False)):
+            # Discussion controls share one trainer, optimizer and evaluator,
+            # including adapters around the five comparator architectures.
+            return "sar_topo_edge_kan", identifier
         if identifier == "sar_topo_edge_kan":
             return "sar_topo_edge_kan", identifier
         if identifier in BUILDERS:
