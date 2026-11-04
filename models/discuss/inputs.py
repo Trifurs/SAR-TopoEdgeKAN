@@ -16,7 +16,6 @@ OBSERVATION_GROUPS = ("s1_t1", "s1_t2", "s1_change", "terrain")
 def shared_observation_channels(band_spec: Any, raw_names: tuple[str, ...]) -> int:
     return (
         sum(band_spec.channels(key) for key in OBSERVATION_GROUPS)
-        + band_spec.channels("s1_conditioning")
         + len(raw_names)
         + 3  # S1 validity, event support, DEM validity
         + len(OBSERVATION_GROUPS)  # per-branch valid fractions
@@ -26,7 +25,6 @@ def shared_observation_channels(band_spec: Any, raw_names: tuple[str, ...]) -> i
 
 def observation_columns(band_spec: Any, raw_names: tuple[str, ...]) -> list[str]:
     names = [f"{key}/{name}" for key in OBSERVATION_GROUPS for name in band_spec.names(key)]
-    names.extend(f"s1_conditioning/{name}" for name in band_spec.names("s1_conditioning"))
     names.extend(f"terrain_raw/{name}" for name in raw_names)
     names.extend(("s1_valid", "s1_event_support", "dem_valid"))
     names.extend(f"branch_validity/{key}" for key in OBSERVATION_GROUPS)
@@ -46,9 +44,6 @@ def assemble_observations(
     """
 
     parts = [inputs[key].float() for key in OBSERVATION_GROUPS]
-    angles = inputs.get("s1_conditioning")
-    if angles is not None:
-        parts.append(angles.float())
     scales = {"elevation_m_DSM": 1000.0, "slope_deg": 90.0}
     raw = inputs["terrain_raw"].float()
     if raw.shape[1] != len(raw_names):

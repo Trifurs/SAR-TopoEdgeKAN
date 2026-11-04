@@ -301,20 +301,6 @@ class FloodDepthDataset(Dataset[dict[str, Any]]):
         ).astype(np.float32)
         output_valid = output_valid_tensor.numpy()[0].astype(np.float32)
 
-        conditioning_parts: list[np.ndarray] = []
-        for source_group, source_index in self.band_spec.conditioning_sources(self.contract):
-            read_indexes = self.band_spec.read_indexes(self.contract, source_group)
-            position = read_indexes.index(source_index)
-            name = str(self.contract.group(source_group)["band_descriptions"][source_index])
-            conditioning_parts.append(
-                self.normalizer.continuous(
-                    source_group,
-                    [name],
-                    arrays[source_group][position : position + 1],
-                    validity[source_group][position : position + 1],
-                )
-            )
-
         exposed_mask_names = mask_names
         sample: dict[str, Any] = {
             group: torch.from_numpy(continuous[group])
@@ -383,10 +369,6 @@ class FloodDepthDataset(Dataset[dict[str, Any]]):
         sample["validity"]["s1_available"] = torch.from_numpy(s1_valid[None])
         sample["validity"]["dem_available"] = torch.from_numpy(dem_valid[None])
         sample["validity"]["s1_valid"] = torch.from_numpy(s1_valid[None])
-        if conditioning_parts:
-            sample["s1_conditioning"] = torch.from_numpy(
-                np.concatenate(conditioning_parts, axis=0).astype(np.float32)
-            )
         return self.transform(sample) if self.transform is not None else sample
 
 
@@ -436,8 +418,6 @@ def prepare_model_inputs(
     })
     if include_reliability:
         result["reliability_names"] = reliability_spec_for_mode(spec.mode).names
-    if "s1_conditioning" in batch:
-        result["s1_conditioning"] = batch["s1_conditioning"]
     if include_valid_depth_mask:
         masks = batch.get("masks")
         if not isinstance(masks, dict) or "valid_depth_mask" not in masks:

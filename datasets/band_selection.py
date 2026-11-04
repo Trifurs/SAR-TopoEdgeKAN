@@ -1,8 +1,8 @@
 """Contract-resolved model input band selections.
 
-The dataset contract describes every available raster band.  :class:`BandSpec`
-describes the smaller, ordered view consumed by one model run without mutating the
-contract or relying on positional channel assumptions.
+The dataset contract describes the audited raster view. :class:`BandSpec`
+resolves the ordered channels consumed by one model run without mutating the
+contract or admitting unmodeled source bands into temporal SAR states.
 """
 
 from __future__ import annotations
@@ -14,7 +14,11 @@ from datasets.contract import DatasetContract
 from datasets.model_input_spec import ModelInputSpec
 
 
-MODEL_BAND_GROUPS = ("s1_t1", "s1_t2", "s1_change", "terrain", "s1_conditioning")
+MODEL_BAND_GROUPS = ("s1_t1", "s1_t2", "s1_change", "terrain")
+S1_POLARIZATION_BANDS = {
+    "s1_t1": ("VV_pre_db", "VH_pre_db"),
+    "s1_t2": ("VV_event_db", "VH_event_db"),
+}
 
 
 @dataclass(frozen=True)
@@ -41,17 +45,14 @@ class BandSpec:
         required_groups: Sequence[str] | None = None,
     ) -> "BandSpec":
         required = tuple(required_groups or ("s1_t1", "s1_t2", "s1_change", "terrain"))
+        uses_default_bands = configured is None
         if configured is None:
-            return cls(
-                {
-                    group: SelectedBands(
-                        tuple(str(name) for name in contract.group(group)["band_descriptions"]),
-                        tuple(range(len(contract.group(group)["band_descriptions"]))),
-                    )
-                    for group in required
-                } | {"s1_conditioning": SelectedBands((), ())},
-                uses_default_bands=True,
-            )
+            configured = {
+                group: S1_POLARIZATION_BANDS.get(
+                    group, tuple(str(name) for name in contract.group(group)["band_descriptions"])
+                )
+                for group in required
+            }
         unknown_groups = set(configured).difference(MODEL_BAND_GROUPS)
         if unknown_groups:
             raise ValueError(f"Unknown model band groups: {sorted(unknown_groups)}")
@@ -60,6 +61,12 @@ class BandSpec:
             requested = tuple(str(value) for value in configured.get(group, ()))
             if len(requested) != len(set(requested)):
                 raise ValueError(f"Duplicate band names in model_bands.{group}: {requested}")
+            if group in S1_POLARIZATION_BANDS:
+                unsupported = set(requested).difference(S1_POLARIZATION_BANDS[group])
+                if unsupported:
+                    raise ValueError(
+                        f"Only VV/VH polarization bands are supported for {group}: {sorted(unsupported)}"
+                    )
             available = tuple(str(value) for value in contract.group(group)["band_descriptions"])
             missing = [name for name in requested if name not in available]
             if missing:
@@ -71,29 +78,10 @@ class BandSpec:
             )
         if "s1_t1" in resolved and "s1_t2" in resolved:
             cls._validate_temporal_pair(resolved["s1_t1"].names, resolved["s1_t2"].names, "S1")
-        conditioning = tuple(str(value) for value in configured.get("s1_conditioning", ()))
-        if len(conditioning) != len(set(conditioning)):
-            raise ValueError(f"Duplicate s1_conditioning names: {conditioning}")
-        temporal_available = {
-            str(name): (group, index)
-            for group in ("s1_t1", "s1_t2")
-            for index, name in enumerate(contract.group(group)["band_descriptions"])
-        }
-        missing_conditioning = [name for name in conditioning if name not in temporal_available]
-        if missing_conditioning:
-            raise ValueError(
-                "Unknown S1 conditioning band(s): "
-                f"{missing_conditioning}; available={sorted(temporal_available)}"
-            )
-        # Conditioning indexes are relative to its source group and are serialized
-        # mainly for audit.  ``conditioning_sources`` is the authoritative mapping.
-        resolved["s1_conditioning"] = SelectedBands(
-            conditioning, tuple(temporal_available[name][1] for name in conditioning)
-        )
         empty_required = [group for group in required if not resolved[group].names]
         if empty_required:
             raise ValueError(f"Model band groups cannot be empty: {empty_required}")
-        return cls(resolved, uses_default_bands=False)
+        return cls(resolved, uses_default_bands=uses_default_bands)
 
     @staticmethod
     def _temporal_base(name: str) -> str:
@@ -131,24 +119,10 @@ class BandSpec:
     def channels(self, group: str) -> int:
         return len(self.names(group))
 
-    def conditioning_sources(self, contract: DatasetContract) -> tuple[tuple[str, int], ...]:
-        result: list[tuple[str, int]] = []
-        for name in self.names("s1_conditioning") if "s1_conditioning" in self.groups else ():
-            for group in ("s1_t1", "s1_t2"):
-                descriptions = list(contract.group(group)["band_descriptions"])
-                if name in descriptions:
-                    result.append((group, descriptions.index(name)))
-                    break
-        return tuple(result)
-
     def read_indexes(self, contract: DatasetContract, group: str) -> tuple[int, ...]:
         """Return zero-based indexes needed from a continuous raster group."""
 
-        indexes = list(self.indexes(group))
-        for source_group, source_index in self.conditioning_sources(contract):
-            if source_group == group and source_index not in indexes:
-                indexes.append(source_index)
-        return tuple(indexes)
+        return self.indexes(group)
 
     def as_dict(self) -> dict[str, Any]:
         return {

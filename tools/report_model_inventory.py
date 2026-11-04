@@ -71,7 +71,7 @@ def inventory(depth_config: Path, comparison_configs: tuple[Path, ...]) -> list[
         {
             "method": MODEL_DISPLAY_NAME, "identifier": "sar_topo_edge_kan", "learnable": "yes",
             "total_parameters": depth_total, "trainable_parameters": depth_trainable,
-            "inputs": "S1 T1/T2/change + incidence + DSM/slope + valid_depth_mask",
+            "inputs": "S1 T1/T2/change + DSM/slope + valid_depth_mask",
             "flood_support": "valid_depth_mask (known/oracle range)",
             "key_configuration": (
                 "channels=24/48/96/144; identity-initialized signed TAE-KAN; "

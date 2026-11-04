@@ -7,7 +7,7 @@
     <known_range_hydrostatic_enabled type="bool">false</known_range_hydrostatic_enabled>
     <topographic_affinity_enabled type="bool">false</topographic_affinity_enabled>
     <input_schema type="str">discuss_shared_observations</input_schema>
-    <input_channels type="int">21</input_channels>
+    <input_channels type="int">19</input_channels>
     <depth_epsilon type="float">0.001</depth_epsilon>
     <uncertainty_scale_m type="float">0.35</uncertainty_scale_m>
     <discuss>

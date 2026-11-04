@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 from pathlib import Path
 
 from utils.config import load_config
@@ -13,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_ROOT = PROJECT_ROOT / "configs" / "discuss"
 GROUPS = {
     "input": (
-        "full", "no_angles", "dlsim_attention_unet_matched", "dlsim_linknet_matched",
+        "full", "dlsim_attention_unet_matched", "dlsim_linknet_matched",
         "resnet18_depth_regression_matched", "unet_depth_regression_matched",
         "unetplusplus_depth_regression_matched",
     ),
@@ -61,12 +60,7 @@ def validate_protocol(paths):
         for key in ("trainable_scope", "max_train_batches", "max_val_batches"):
             if config["runtime"]["train"][key] != reference["runtime"]["train"][key]:
                 raise ValueError(f"{path.name} changes runtime.train.{key}")
-        dataset = deepcopy(config["dataset"])
-        if path.stem == "no_angles":
-            if dataset["model_bands"]["s1_conditioning"]:
-                raise ValueError("The no-angles control still requests incidence angles")
-            dataset["model_bands"]["s1_conditioning"] = reference["dataset"]["model_bands"]["s1_conditioning"]
-        if dataset != reference["dataset"]:
+        if config["dataset"] != reference["dataset"]:
             raise ValueError(f"{path.name} changes the shared dataset contract or processing")
         if config["model"]["flood_support"] != "valid_depth_mask":
             raise ValueError(f"{path.name} changes the known flood range")

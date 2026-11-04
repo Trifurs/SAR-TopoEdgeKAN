@@ -154,7 +154,7 @@ class TerrainOnlyModel(SARTopoEdgeKAN):
         self.decoder.change_injection_scale = 0.0
 
     def forward(self, inputs: Mapping[str, Any]):
-        # No SAR, angle, reliability or S1 validity tensor is read here. The
+        # No SAR, reliability or S1 validity tensor is read here. The
         # common evaluator still uses the same canonical supervision domain.
         terrain, physical = self.terrain(inputs["terrain"], inputs["terrain_raw"], inputs["dem_valid"])
         bottleneck = self.context(terrain[-1])

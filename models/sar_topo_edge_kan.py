@@ -337,14 +337,12 @@ class SARTopoEdgeKAN(nn.Module):
             else SARHydrologyEncoder
         )
         self.temporal_change_encoder = encoder_variant
-        conditioning_channels = band_spec.channels("s1_conditioning") + int(
-            self.known_flood_range_enabled
-        )
+        range_channels = int(self.known_flood_range_enabled)
         encoder_options: dict[str, Any] = {
             "dropout": dropout,
             "groups": groups,
             "block_kind": sar_block_kind,
-            "conditioning_channels": conditioning_channels,
+            "known_flood_range_enabled": self.known_flood_range_enabled,
         }
         self.sar_encoder = encoder_type(
             band_spec.channels("s1_t1"),
@@ -457,7 +455,7 @@ class SARTopoEdgeKAN(nn.Module):
             + 4 * state_channels
             + band_spec.channels("s1_change")
             + band_spec.channels("terrain")
-            + conditioning_channels
+            + range_channels
             + 7
             + 6
             + context_channels
@@ -577,7 +575,7 @@ class SARTopoEdgeKAN(nn.Module):
         decoded: torch.Tensor,
         physical: Mapping[str, Any],
         branch_validity: Mapping[str, torch.Tensor],
-        conditioning: torch.Tensor | None,
+        flood_range: torch.Tensor | None,
     ) -> tuple[torch.Tensor, ...]:
         """Return ordered, bounded mask-agnostic evidence groups."""
 
@@ -600,12 +598,12 @@ class SARTopoEdgeKAN(nn.Module):
         difference = (event - pre) * pair_valid
         change = inputs["s1_change"].to(decoded.dtype) * change_valid
         terrain = inputs["terrain"].to(decoded.dtype) * dem_valid
-        if conditioning is None:
-            conditioning_features = decoded.new_zeros(
+        if flood_range is None:
+            range_features = decoded.new_zeros(
                 decoded.shape[0], 0, *decoded.shape[-2:]
             )
         else:
-            conditioning_features = conditioning.to(decoded.dtype) * event_support
+            range_features = flood_range.to(decoded.dtype) * event_support
 
         relief = physical["local_relief"].to(decoded.dtype)
         terrain_scale = relief + 1.0
@@ -634,7 +632,7 @@ class SARTopoEdgeKAN(nn.Module):
                     difference.abs(),
                     change,
                     terrain,
-                    conditioning_features,
+                    range_features,
                 ),
                 dim=1,
             ),
@@ -674,20 +672,12 @@ class SARTopoEdgeKAN(nn.Module):
         if missing:
             raise KeyError(f"Missing flood-depth inputs: {sorted(missing)}")
         branch_validity = dict(inputs.get("branch_validity", {}))
-        conditioning = inputs.get("s1_conditioning")
-        if self.band_spec.channels("s1_conditioning") and conditioning is None:
-            raise KeyError("Missing configured S1 angle conditioning")
         if self.known_flood_range_enabled:
             flood_range = inputs["valid_depth_mask"].to(inputs["s1_t1"].dtype)
             if flood_range.ndim != 4 or flood_range.shape[1] != 1:
                 raise ValueError(
                     "valid_depth_mask must have shape [batch, 1, height, width]"
                 )
-            conditioning = (
-                flood_range
-                if conditioning is None
-                else torch.cat((conditioning, flood_range), dim=1)
-            )
         else:
             flood_range = None
         sar, sar_diagnostics = self.sar_encoder(
@@ -695,7 +685,7 @@ class SARTopoEdgeKAN(nn.Module):
             inputs["s1_t2"],
             inputs["s1_change"],
             inputs["s1_valid"],
-            conditioning,
+            flood_range,
             branch_validity,
         )
         terrain, physical = self.terrain(
@@ -736,7 +726,7 @@ class SARTopoEdgeKAN(nn.Module):
             )
         calibration_parts = (
             self._global_calibration_evidence_parts(
-                inputs, decoded, physical, branch_validity, conditioning
+                inputs, decoded, physical, branch_validity, flood_range
             )
             if self.global_depth_calibration_adapter is not None
             else None

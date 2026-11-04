@@ -69,13 +69,14 @@ class GroupSpec:
 
     path_column: str
     role: str
+    bands: tuple[str, ...] | None = None
 
 
 GROUP_SPECS = {
     "label": GroupSpec("label_path", "target"),
     "masks": GroupSpec("masks_path", "mask_only"),
-    "s1_t1": GroupSpec("s1_t1_path", "model_input"),
-    "s1_t2": GroupSpec("s1_t2_path", "model_input"),
+    "s1_t1": GroupSpec("s1_t1_path", "model_input", ("VV_pre_db", "VH_pre_db")),
+    "s1_t2": GroupSpec("s1_t2_path", "model_input", ("VV_event_db", "VH_event_db")),
     "s1_change": GroupSpec("s1_change_path", "model_input"),
     "s1_qa": GroupSpec("s1_qa_path", "quality_only"),
     "terrain": GroupSpec("dem_path", "model_input"),
@@ -240,15 +241,26 @@ class RasterGroupAudit:
         sample_id: str,
     ) -> tuple[np.ndarray, np.ndarray]:
         with rasterio.open(path) as raster:
-            values = raster.read(masked=False)
-            raster_masks = raster.read_masks()
+            available = tuple(str(item) for item in raster.descriptions)
+            descriptions = self.spec.bands or available
+            missing = set(descriptions).difference(available)
+            if missing:
+                raise DatasetPreparationError(
+                    f"{self.name} is missing required bands for {sample_id}: {sorted(missing)}"
+                )
+            if self.spec.bands is not None and available[:len(descriptions)] != descriptions:
+                raise DatasetPreparationError(
+                    f"{self.name} selected bands must match the declared leading raster view for {sample_id}"
+                )
+            indexes = [available.index(name) + 1 for name in descriptions]
+            values = raster.read(indexes=indexes, masked=False)
+            raster_masks = raster.read_masks(indexes=indexes)
             valid = _masked_validity(values, raster_masks, raster.nodata)
-            descriptions = tuple(str(item) for item in raster.descriptions)
             if any(not item or item == "None" for item in descriptions):
                 raise DatasetPreparationError(
                     f"{self.name} has unnamed bands in sample {sample_id}: {path}"
                 )
-            dtypes = tuple(str(item) for item in raster.dtypes)
+            dtypes = tuple(str(raster.dtypes[index - 1]) for index in indexes)
             nodata = None if raster.nodata is None else float(raster.nodata)
             resolution = tuple(float(item) for item in raster.res)
             crs = raster.crs.to_string() if raster.crs else None

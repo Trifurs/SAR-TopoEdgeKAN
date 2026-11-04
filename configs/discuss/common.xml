@@ -12,7 +12,7 @@
       <trainable type="bool">true</trainable>
       <architecture type="str">sar_topo_edge_kan</architecture>
       <observation_mode type="str">full</observation_mode>
-      <shared_input_channels type="int">21</shared_input_channels>
+      <shared_input_channels type="int">19</shared_input_channels>
       <edge_function type="str">kan</edge_function>
       <mlp_hidden type="int">7</mlp_hidden>
       <head_mode type="str">native</head_mode>

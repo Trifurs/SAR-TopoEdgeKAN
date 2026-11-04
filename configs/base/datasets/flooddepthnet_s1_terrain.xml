@@ -37,7 +37,6 @@
       <s1_t1 type="list"><item>VV_pre_db</item><item>VH_pre_db</item></s1_t1>
       <s1_t2 type="list"><item>VV_event_db</item><item>VH_event_db</item></s1_t2>
       <s1_change type="list"><item>VV_delta_db</item><item>VH_delta_db</item><item>anomaly_raw</item></s1_change>
-      <s1_conditioning type="list"><item>angle_pre_deg</item><item>angle_event_deg</item></s1_conditioning>
       <terrain type="list"><item>elevation_m_DSM</item><item>slope_deg</item></terrain>
     </model_bands>
   </dataset>

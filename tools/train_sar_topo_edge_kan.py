@@ -129,7 +129,6 @@ def _training_diagnostic_values(
         "pair_valid_fraction_mean": _diagnostic_mean(sar.get("pair_valid_fraction_mean")),
         "pre_context_gate_mean": _diagnostic_mean(sar.get("pre_context_gate_mean")),
         "change_gate_mean": _diagnostic_mean(sar.get("change_gate_mean")),
-        "angle_film_amplitude": _diagnostic_mean(sar.get("angle_film_amplitude")),
         "quality_mean": _diagnostic_mean(sar.get("quality_mean")),
         "detail_gate_mean": _diagnostic_mean(sar.get("detail_gate_mean")),
         "sar_alignment_valid_mean": _diagnostic_mean(fusion.get("sar_gate_mean")),

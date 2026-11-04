@@ -26,7 +26,7 @@
   "normalization": {
     "selected": {
       "scope": "train split only; valid pixels only; val/test excluded",
-      "sha256": "275a1c35a53eff7889fd940f42d6432d2310945ee53082596841f302546175d6"
+      "sha256": "6c40ae60eed4f4eb8ee63d667125035662ac631ed57f85c616457a230f82425a"
     }
   },
   "raster_groups": {
@@ -335,25 +335,15 @@
           "minimum": -67.53164672851562,
           "nonfinite_pixels": 0,
           "valid_pixels": 379714874
-        },
-        {
-          "description": "angle_pre_deg",
-          "invalid_pixels": 2687686,
-          "maximum": 46.31736755371094,
-          "minimum": 29.734086990356445,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714874
         }
       ],
-      "band_count": 3,
+      "band_count": 2,
       "band_descriptions": [
         "VV_pre_db",
-        "VH_pre_db",
-        "angle_pre_deg"
+        "VH_pre_db"
       ],
       "crs": "EPSG:27704",
       "dtypes": [
-        "float32",
         "float32",
         "float32"
       ],
@@ -387,25 +377,15 @@
           "minimum": -88.32127380371094,
           "nonfinite_pixels": 0,
           "valid_pixels": 379714874
-        },
-        {
-          "description": "angle_event_deg",
-          "invalid_pixels": 2687686,
-          "maximum": 46.32117462158203,
-          "minimum": 29.732629776000977,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714874
         }
       ],
-      "band_count": 3,
+      "band_count": 2,
       "band_descriptions": [
         "VV_event_db",
-        "VH_event_db",
-        "angle_event_deg"
+        "VH_event_db"
       ],
       "crs": "EPSG:27704",
       "dtypes": [
-        "float32",
         "float32",
         "float32"
       ],

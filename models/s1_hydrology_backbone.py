@@ -65,8 +65,8 @@ class JointSARHydrologyEncoder(nn.Module):
     frequently absent, but it is unnecessarily expensive for the audited
     FloodDepthNet release where complete event observations are required.  This
     encoder exposes the same downstream contract while learning joint spatial
-    filters from the states, signed/absolute temporal change, acquisition-angle
-    conditioning, and branch-validity indicators in one pyramid.
+    filters from the states, signed/absolute temporal change, supplied known
+    flood range, and branch-validity indicators in one pyramid.
 
     Acquisition-quality metadata is deliberately excluded: repeated matched
     ablations found that its former reliability-conditioning path did not
@@ -83,7 +83,7 @@ class JointSARHydrologyEncoder(nn.Module):
         dropout: float = 0.10,
         groups: int = 8,
         block_kind: str = "spatial",
-        conditioning_channels: int = 0,
+        known_flood_range_enabled: bool = False,
     ) -> None:
         super().__init__()
         widths = [int(value) for value in channels]
@@ -94,13 +94,13 @@ class JointSARHydrologyEncoder(nn.Module):
         self.widths = widths
         self.state_channels = int(state_channels)
         self.change_channels = int(change_channels)
-        self.conditioning_channels = int(conditioning_channels)
+        self.known_flood_range_enabled = bool(known_flood_range_enabled)
         # pre + event + external change + signed/absolute internal change,
-        # optional acquisition angles, and four explicit availability maps.
+        # optional supplied flood range, and four explicit availability maps.
         input_channels = (
             4 * self.state_channels
             + self.change_channels
-            + self.conditioning_channels
+            + int(self.known_flood_range_enabled)
             + 4
         )
         self.pyramid = EfficientPyramidBranch(
@@ -124,7 +124,7 @@ class JointSARHydrologyEncoder(nn.Module):
         event: torch.Tensor,
         change: torch.Tensor,
         valid: torch.Tensor,
-        conditioning: torch.Tensor | None = None,
+        flood_range: torch.Tensor | None = None,
         branch_validity: Mapping[str, torch.Tensor] | None = None,
     ) -> tuple[list[torch.Tensor], dict[str, Any]]:
         branch_validity = branch_validity or {}
@@ -135,12 +135,14 @@ class JointSARHydrologyEncoder(nn.Module):
         )
         pair_valid = torch.minimum(pre_valid, event_valid)
         internal_change = (event - pre) * pair_valid
-        if self.conditioning_channels:
-            if conditioning is None:
-                raise KeyError("S1 angle conditioning was configured but absent")
-            conditioned = conditioning * event_valid
+        if self.known_flood_range_enabled:
+            if flood_range is None:
+                raise KeyError("Supplied flood range was configured but absent")
+            if flood_range.shape != event_valid.shape:
+                raise ValueError("Supplied flood range must match the single-channel validity map")
+            range_features = flood_range * event_valid
         else:
-            conditioned = pre.new_zeros(pre.shape[0], 0, *pre.shape[-2:])
+            range_features = pre.new_zeros(pre.shape[0], 0, *pre.shape[-2:])
         joint = torch.cat(
             (
                 pre * pre_valid,
@@ -148,7 +150,7 @@ class JointSARHydrologyEncoder(nn.Module):
                 change * change_valid,
                 internal_change,
                 internal_change.abs(),
-                conditioned,
+                range_features,
                 pre_valid,
                 event_valid,
                 change_valid,
@@ -204,7 +206,6 @@ class JointSARHydrologyEncoder(nn.Module):
             "change_gates": quality_gates,
             "quality_gates": quality_gates,
             "detail_gates": quality_gates,
-            "angle_film_amplitude": zero,
             "change_evidence": change_evidence,
             "internal_change_weights": [],
             "external_change_weights": [],
@@ -244,7 +245,7 @@ class SARHydrologyEncoder(nn.Module):
         dropout: float = 0.10,
         groups: int = 8,
         block_kind: str = "efficient",
-        conditioning_channels: int = 0,
+        known_flood_range_enabled: bool = False,
     ) -> None:
         super().__init__()
         widths = [int(value) for value in channels]
@@ -294,17 +295,19 @@ class SARHydrologyEncoder(nn.Module):
         self.refine = nn.ModuleList(
             [residual_block(block_kind, width, dropout, groups) for width in widths]
         )
+        self.known_flood_range_enabled = bool(known_flood_range_enabled)
+        # Preserve the established parameter names for the optional known-range
+        # modulation; this projection consumes only the supplied binary range.
         self.conditioning = (
             nn.ModuleList(
-                [nn.Conv2d(int(conditioning_channels), 4 * width, 1) for width in widths]
+                [nn.Conv2d(1, 4 * width, 1) for width in widths]
             )
-            if conditioning_channels
+            if self.known_flood_range_enabled
             else None
         )
         if self.conditioning is not None:
             for projection in self.conditioning:
-                # Incidence correction starts as an identity path.  The network
-                # learns only a small angular residual rather than re-learning SAR.
+                # Known-range modulation starts as an identity path.
                 nn.init.zeros_(projection.weight)
                 nn.init.zeros_(projection.bias)
 
@@ -314,13 +317,18 @@ class SARHydrologyEncoder(nn.Module):
         event: torch.Tensor,
         change: torch.Tensor,
         valid: torch.Tensor,
-        conditioning: torch.Tensor | None = None,
+        flood_range: torch.Tensor | None = None,
         branch_validity: Mapping[str, torch.Tensor] | None = None,
     ) -> tuple[list[torch.Tensor], dict[str, Any]]:
         branch_validity = branch_validity or {}
         pre_valid = branch_validity.get("s1_t1", branch_validity.get("t1", valid))
         event_valid = branch_validity.get("s1_t2", branch_validity.get("t2", valid))
         change_valid = branch_validity.get("s1_change", branch_validity.get("change", valid))
+        if self.known_flood_range_enabled:
+            if flood_range is None:
+                raise KeyError("Supplied flood range was configured but absent")
+            if flood_range.shape != event_valid.shape:
+                raise ValueError("Supplied flood range must match the single-channel validity map")
 
         pair_valid = torch.minimum(pre_valid, event_valid)
         pre_features = self.temporal(pre * pre_valid)
@@ -346,7 +354,7 @@ class SARHydrologyEncoder(nn.Module):
             "change_gates": [],
             "quality_gates": [],
             "detail_gates": [],
-            "angle_film_amplitude": [],
+            "range_film_amplitude": [],
             "change_evidence": [],
             "internal_change_weights": [],
             "external_change_weights": [],
@@ -363,21 +371,20 @@ class SARHydrologyEncoder(nn.Module):
             change_fraction = _pool_fraction(change_valid, size)
             pair_fraction = _pool_fraction(pair_valid, size)
             if self.conditioning is not None:
-                if conditioning is None:
-                    raise KeyError("S1 angle conditioning was configured but absent")
-                angle = F.interpolate(conditioning, size, mode="bilinear", align_corners=False)
-                gamma_before, beta_before, gamma_after, beta_after = self.conditioning[index](angle).chunk(4, dim=1)
+                assert flood_range is not None
+                range_features = F.interpolate(flood_range, size, mode="bilinear", align_corners=False)
+                gamma_before, beta_before, gamma_after, beta_after = self.conditioning[index](range_features).chunk(4, dim=1)
                 # A shared FiLM residual avoids turning identical pre/event
                 # states into a synthetic temporal difference.
                 gamma = 0.5 * (gamma_before + gamma_after)
                 beta = 0.5 * (beta_before + beta_after)
                 before = before * (1.0 + 0.10 * torch.tanh(gamma)) + 0.05 * torch.tanh(beta)
                 after = after * (1.0 + 0.10 * torch.tanh(gamma)) + 0.05 * torch.tanh(beta)
-                diagnostics["angle_film_amplitude"].append(
+                diagnostics["range_film_amplitude"].append(
                     torch.cat((gamma_before, beta_before, gamma_after, beta_after), dim=1).abs().mean()
                 )
             else:
-                diagnostics["angle_film_amplitude"].append(before.sum() * 0.0)
+                diagnostics["range_film_amplitude"].append(before.sum() * 0.0)
 
             # The event state is the always-present main path.  Pre-event
             # information can only enter through a fraction-gated context term.

@@ -34,16 +34,14 @@ def real_batch():
 
 def inputs_for(batch, config, device="cpu"):
     values = prepare_model_inputs(batch, ModelInputSpec.from_config(config), include_valid_depth_mask=True, include_reliability=False)
-    if not config["dataset"]["model_bands"]["s1_conditioning"]:
-        values.pop("s1_conditioning", None)
     return move_to_device(values, torch.device(device))
 
 
 def test_discussion_protocol_and_default_catalog_are_separate():
     paths = config_paths(("all",))
     validate_protocol(paths)
-    assert len(paths) == 16
-    assert len(config_paths(("all",), trainable_only=True)) == 15
+    assert len(paths) == 15
+    assert len(config_paths(("all",), trainable_only=True)) == 14
     assert len(deep_learning_config_paths()) == 7
     assert not any("discuss" in path.parts for path in deep_learning_config_paths())
 
@@ -58,19 +56,23 @@ def test_protocol_rejects_a_changed_training_condition(tmp_path):
         validate_protocol((overlay,))
 
 
-def test_shared_observations_include_angles_raw_terrain_and_availability(real_batch):
+def test_shared_observations_include_raw_terrain_and_availability(real_batch):
     config = configured("unet_depth_regression_matched")
     model = build_model(config)
     inputs = inputs_for(real_batch, config)
+    assert set(inputs) == {
+        "s1_t1", "s1_t2", "s1_change", "terrain", "terrain_raw",
+        "s1_valid", "s1_event_support", "dem_valid", "branch_validity",
+        "valid_depth_mask",
+    }
     packed = assemble_observations(inputs, model.discussion_raw_names)
-    assert packed.shape[1] == 21
-    assert len(model.input_columns) == 21
-    assert any("angle_pre_deg" in name for name in model.input_columns)
-    assert any("angle_event_deg" in name for name in model.input_columns)
+    assert packed.shape[1] == 19
+    assert len(model.input_columns) == 19
+    assert model.input_columns[:2] == ["s1_t1/VV_pre_db", "s1_t1/VH_pre_db"]
     assert "terrain_raw/elevation_m_DSM" in model.input_columns
     assert "branch_validity/s1_t1" in model.input_columns
     assert torch.equal(packed[:, -1:], real_batch["masks"]["valid_depth_mask"])
-    changed = dict(inputs, s1_conditioning=inputs["s1_conditioning"] + 1)
+    changed = dict(inputs, terrain_raw=inputs["terrain_raw"] + 1)
     assert not torch.equal(packed, assemble_observations(changed, model.discussion_raw_names))
     assert not any("label" in name for name in model.input_columns)
 

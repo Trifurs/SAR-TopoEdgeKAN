@@ -65,7 +65,7 @@ def test_joint_sar_encoder_preserves_multiscale_contract():
         dropout=0.0,
         groups=8,
         block_kind="spatial",
-        conditioning_channels=2,
+        known_flood_range_enabled=True,
     )
     shape = (2, 1, 32, 32)
     valid = torch.ones(shape)
@@ -74,7 +74,7 @@ def test_joint_sar_encoder_preserves_multiscale_contract():
         torch.randn(2, 2, 32, 32),
         torch.randn(2, 3, 32, 32),
         valid,
-        torch.randn(2, 2, 32, 32),
+        torch.ones(shape),
         {
             "s1_t1": valid,
             "s1_t2": valid,
@@ -105,7 +105,7 @@ def test_joint_sar_encoder_event_validity_gates_every_output_scale():
         dropout=0.0,
         groups=8,
         block_kind="inverted",
-        conditioning_channels=0,
+        known_flood_range_enabled=False,
     ).eval()
     generator = torch.Generator().manual_seed(31)
     shape = (2, 1, 32, 32)

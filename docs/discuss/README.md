@@ -8,23 +8,22 @@ All trainable configurations inherit the existing dataset contract, split, train
 
 | Group | Configurations in `configs/discuss/` | Purpose |
 |---|---|---|
-| Shared reference | `full.xml` | Unchanged production forward architecture, trained through the discussion protocol. |
-| 2: input fairness | Five `*_matched.xml` comparators; `no_angles.xml`; shared reference | Expose every observation used by the full model to the comparator architectures. The no-angles run is a separate input intervention. |
+| Shared reference | `full.xml` | SAR-TopoEdgeKAN, trained through the discussion protocol. |
+| 2: input fairness | Five `*_matched.xml` comparators; shared reference | Expose every observation used by the full model to the comparator architectures. |
 | 3: edge mechanism | `no_graph.xml`, `fixed_edges.xml`, `linear_edges.xml`, `mlp_edges.xml`; shared reference | Distinguish graph aggregation, fixed topographic affinity, linear edges, nonlinear MLP edges and KAN edges. |
 | 4: prior and SAR | `prior_only.xml`, `no_prior.xml`, `terrain_only.xml`, `unet_shared_head.xml`, `unet_prior.xml`; matched U-Net and shared reference | Separate deterministic geometry, prior residual prediction, SAR observations and backbone effects. |
 | 7: efficiency | `efficiency.xml` | Common GPU measurement protocol for all unique discussion models. |
 
-There are **15 unique trainable configurations and one deterministic control**. References shared by several groups are deduplicated when groups are run together. Five paired seeds across all trainable configurations require 75 training jobs; the prior-only model is evaluated once.
+There are **14 unique trainable configurations and one deterministic control**. References shared by several groups are deduplicated when groups are run together. Five paired seeds across all trainable configurations require 70 training jobs; the prior-only model is evaluated once.
 
 ## Input fairness
 
-The five matched comparators receive 21 channels assembled from the same observation whitelist as the full model:
+The five matched comparators receive 19 channels assembled from the same observation whitelist as the full model:
 
 | Observations | Channels |
 |---|---:|
 | Normalized pre/event/change S1 | 7 |
 | Normalized DSM and slope | 2 |
-| Pre/event incidence angles | 2 |
 | Raw DSM and slope | 2 |
 | S1 validity, event support, DEM validity | 3 |
 | Per-branch valid fractions | 4 |
@@ -32,7 +31,7 @@ The five matched comparators receive 21 channels assembled from the same observa
 
 Raw terrain is scaled by fixed unit conversions inside the comparator adapter (DSM divided by 1000, slope divided by 90). It is not clipped and no new normalization statistics are estimated. The original metric-valued DSM is used directly by the shared hydrostatic prior. Labels, event IDs, QA values not consumed by the full model and other label masks are excluded. Architectures may process the shared observations differently.
 
-Every input-facing convolution is expanded, including residual skip projections. Weights for the original nine normalized observation channels and range channel are retained at initialization; new channel weights start at zero and are trainable. `no_angles.xml` removes both angles from the main model and declares 19 shared observation channels. It is an intentional modality intervention, rather than a fully input-matched comparator.
+Every input-facing convolution is expanded, including residual skip projections. Weights for the original nine normalized observation channels and range channel are retained at initialization; new channel weights start at zero and are trainable. All matched comparators and the full model use the same 19-channel observation whitelist; no dataset-contract exception is permitted by the protocol validator.
 
 ## Edge-function controls
 
@@ -49,7 +48,7 @@ Fixed affinity removes learning of the physical-affinity coefficients as well as
 
 - `prior_only.xml` uses the exact production connected-component boundary-quantile prior. It has zero parameters and no optimizer, checkpoint or repeated-seed fitting stage.
 - `no_prior.xml` uses the production conditional-positive head without the hydrostatic residual reference.
-- `terrain_only.xml` physically removes the SAR encoder, SAR alignment and change-injection projection. Terrain features provide the decoder backbone and DEM validity supplies graph support. No SAR values, incidence angles or S1 validity tensors enter its prediction. The evaluator keeps the same canonical valid-pixel domain for all methods.
+- `terrain_only.xml` physically removes the SAR encoder, SAR alignment and change-injection projection. Terrain features provide the decoder backbone and DEM validity supplies graph support. No SAR values or S1 validity tensors enter its prediction. The evaluator keeps the same canonical valid-pixel domain for all methods.
 - `unet_shared_head.xml` and `unet_prior.xml` use the same U-Net backbone, matched observations and the production conditional-depth head design. The latter enables the exact production hydrostatic prior and bounded multiplicative log-depth residual. Include the shared direct head to separate prior effects from changing the native one-layer U-Net output head.
 
 The supplied range is still derived from target support. These configurations evaluate known-range depth reconstruction; they do not establish robustness to predicted extent errors or independence between dataset event chains.
@@ -64,7 +63,7 @@ export MKL_THREADING_LAYER=GNU
 # Inspect and verify protocols/parameter counts without training.
 python tools/discuss/run_experiments.py check --build
 
-# Run all 15 trainable configurations with five paired seeds.
+# Run all 14 trainable configurations with five paired seeds.
 python tools/discuss/run_experiments.py train --groups all --seeds 5
 
 # Or select one group; references are deduplicated within this command.
