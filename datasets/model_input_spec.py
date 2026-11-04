@@ -54,9 +54,6 @@ class ModelInputSpec:
     def qa_groups(self) -> tuple[str, ...]:
         return ("s1_qa",)
 
-    def requires(self, group: str) -> bool:
-        return group in self.active_groups
-
     def as_dict(self) -> dict[str, Any]:
         return {
             "mode": self.mode,

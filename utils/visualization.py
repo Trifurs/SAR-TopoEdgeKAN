@@ -22,7 +22,6 @@ def save_prediction_panel(
     dsm: np.ndarray,
     target: np.ndarray,
     prediction: np.ndarray,
-    uncertainty: np.ndarray,
     valid_label: np.ndarray,
 ) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -33,10 +32,9 @@ def save_prediction_panel(
         (dsm, "DSM (m)", "terrain"),
         (target_view, "Target depth (m)", "Blues"),
         (prediction, "Predicted depth (m)", "Blues"),
-        (uncertainty, "Uncertainty scale (m)", "magma"),
         (error_view, "Absolute error on valid labels", "inferno"),
     ])
-    columns = 4
+    columns = 3
     rows = int(np.ceil(len(panels) / columns))
     figure, axes = plt.subplots(rows, columns, figsize=(4 * columns, 4 * rows), constrained_layout=True)
     axes = np.asarray(axes).reshape(-1)
@@ -45,7 +43,8 @@ def save_prediction_panel(
         axis.set_title(title)
         axis.axis("off")
         figure.colorbar(shown, ax=axis, fraction=0.046, pad=0.04)
-    axes.flat[-1].axis("off")
+    for axis in axes.flat[len(panels):]:
+        axis.axis("off")
     figure.savefig(path, dpi=150)
     plt.close(figure)
     return path

@@ -11,3 +11,45 @@ Validation data select checkpoints and stop training. The test split is used onl
 The `valid_depth_mask` comes from the dataset's target support. Therefore all results are **known-range/oracle flood-depth** results, not end-to-end flood-extent prediction results. An independently supplied range would be required for deployment.
 
 Traditional methods use the supplied range and DSM: FwDET v2 allocates an outer-boundary elevation, TSA fits a per-component first-degree water-surface trend, and FlDepth reconstructs from medial-ridge cross sections and bank elevations. They are included as test-only references rather than loss-controlled neural baselines.
+
+## Shared depth objective
+
+Every learned model uses the same canonical supervision domain,
+`valid_depth_mask & output_valid`. The configured objective is
+
+$$
+\begin{aligned}
+L={}&0.50\left(L_{\mathrm{linear}}+0.03L_{\log}\right)
+ +0.15\,\mathrm{MAE}_{\mathrm{pixel}}
+ +0.20\,\mathrm{RMSE}_{\mathrm{pixel}}\\
+ &+0.25\,\mathrm{MAE}_{\mathrm{event}}
+ +0.05\,\mathrm{RMSE}_{\mathrm{event}}
+ +0.25\,\mathrm{MAE}_{\mathrm{hierarchical}}\\
+ &+0.05\,\mathrm{RMSE}_{\mathrm{depth\ bins}}
+ +0.10\,\mathrm{RMSE}_{\mathrm{hierarchical}}
+ +0.03L_{\mathrm{event\ bias}}.
+\end{aligned}
+$$
+
+`L_linear` is pixel-micro Smooth-L1 in metres; `L_log` applies Smooth-L1 to `log1p` depths. Both use transition width 0.50 in their respective coordinates. Event MAE/RMSE give each batch-present event one vote. Depth-bin RMSE averages RMSE over nonempty frozen train-depth strata. Hierarchical MAE averages refined strata within their primary regime, then primary regimes within each event, then events; hierarchical RMSE is the square root of the corresponding hierarchically averaged squared error. The event-bias term applies Smooth-L1, with transition 0.10 m, to each event's signed mean error before averaging events.
+
+The 14 loss configuration keys in `configs/base/unified_protocol.xml` are:
+
+| Key | Value | Role |
+|---|---:|---|
+| `objective_mode` | `task_adaptive` | Shared objective identifier |
+| `depth_huber_beta_m` | 0.50 | Metre-valued Smooth-L1 transition |
+| `log_depth_huber_beta` | 0.50 | Log-depth Smooth-L1 transition |
+| `lambda_depth` | 0.50 | Weight of the linear plus weighted log-depth term |
+| `lambda_log` | 0.03 | Log-depth weight inside the depth term |
+| `lambda_metric_pixel_mae` | 0.15 | Pixel MAE weight |
+| `lambda_metric_pixel_rmse` | 0.20 | Pixel RMSE weight |
+| `lambda_metric_event_mae` | 0.25 | Event MAE weight |
+| `lambda_metric_event_rmse` | 0.05 | Event RMSE weight |
+| `lambda_metric_event_hierarchical_mae` | 0.25 | Hierarchical MAE weight |
+| `lambda_metric_depth_bin_rmse` | 0.05 | Depth-bin RMSE weight |
+| `lambda_metric_event_hierarchical_rmse` | 0.10 | Hierarchical RMSE weight |
+| `lambda_depth_bias` | 0.03 | Event mean-bias weight |
+| `depth_bias_beta_m` | 0.10 | Event-bias Smooth-L1 transition |
+
+Stratification boundaries come only from the training assets. Batch-level objective terms are distinct from full-split evaluation metrics, which accumulate all valid test observations before reporting.

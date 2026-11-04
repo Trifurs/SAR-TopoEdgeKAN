@@ -10,8 +10,10 @@ The experiment assumes a supplied flood range (`valid_depth_mask`). That range i
 - `configs/ablation/sar_topo_edge_kan_wo_tae_kan.xml`: edge-KAN removal.
 - `compare/`, `configs/compare/`: five learned and three traditional comparators.
 - `datasets/`, `assets/`: data loading and audited contract/statistics.
+- `losses/`, `configs/base/unified_protocol.xml`: shared depth-regression objective.
 - `train.py`, `evaluate.py`, `test.py`: single-model training, evaluation, and common test suite.
 - `validate_random_seeds.py`: fixed-split repeated-seed validation.
+- `configs/discuss/`, `tools/discuss/`: matched-input, edge-function, prior/SAR and efficiency controls.
 
 ## Data and environment
 

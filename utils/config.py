@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 import xml.etree.ElementTree as ET
 
 
@@ -112,50 +112,6 @@ def load_config(path: str | Path) -> dict[str, Any]:
     """Load and fully resolve a configuration XML tree."""
 
     return _load_recursive(Path(path), ())
-
-
-def parse_override_value(value: str) -> Any:
-    lowered = value.lower()
-    if lowered in {"true", "false"}:
-        return lowered == "true"
-    if lowered in {"none", "null"}:
-        return None
-    try:
-        return int(value)
-    except ValueError:
-        pass
-    try:
-        return float(value)
-    except ValueError:
-        return value
-
-
-def apply_overrides(config: dict[str, Any], overrides: Iterable[str]) -> dict[str, Any]:
-    """Apply ``section.key=value`` overrides to a resolved configuration."""
-
-    result = deepcopy(config)
-    for expression in overrides:
-        if "=" not in expression:
-            raise ConfigError(f"Override must be key=value: {expression!r}")
-        dotted, raw = expression.split("=", 1)
-        keys = [key for key in dotted.split(".") if key]
-        if not keys:
-            raise ConfigError(f"Empty override key: {expression!r}")
-        cursor: dict[str, Any] = result
-        for key in keys[:-1]:
-            existing = cursor.get(key)
-            if not isinstance(existing, dict):
-                raise ConfigError(f"Override parent is not a mapping: {dotted!r}")
-            cursor = existing
-        if keys[-1] not in cursor:
-            raise ConfigError(f"Override key does not exist: {dotted!r}")
-        parsed = parse_override_value(raw)
-        current = cursor[keys[-1]]
-        if isinstance(current, Path) and isinstance(parsed, str):
-            path_value = Path(parsed).expanduser()
-            parsed = path_value.resolve() if path_value.is_absolute() else (PROJECT_ROOT / path_value).resolve()
-        cursor[keys[-1]] = parsed
-    return result
 
 
 def jsonable_config(value: Any) -> Any:

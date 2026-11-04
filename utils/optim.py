@@ -33,11 +33,7 @@ def build_optimizer(model: torch.nn.Module, config: dict) -> torch.optim.Optimiz
             marker in normalized
             for marker in (
                 "context_adapter",
-                "skip_merge",
                 "global_context",
-                "hydrostatic_adapter",
-                "global_depth_calibration_adapter",
-                "depth_range_calibration",
             )
         )
         lr_multiplier = (
@@ -61,16 +57,12 @@ def build_optimizer(model: torch.nn.Module, config: dict) -> torch.optim.Optimiz
 def build_scheduler(optimizer, config: dict, total_steps: int, warmup_steps: int):
     scheduler_config = config["scheduler"]
     name = str(scheduler_config["name"]).lower()
+    if name != "cosine_with_warmup":
+        raise ValueError(f"Unsupported scheduler.name {name!r}")
     minimum_ratio = float(scheduler_config.get("minimum_learning_rate", 0.0)) / float(config["optimizer"]["learning_rate"])
     def scale(step: int) -> float:
         if warmup_steps and step < warmup_steps:
             return max(1e-8, (step + 1) / warmup_steps)
-        if name == "constant_with_warmup":
-            return 1.0
         progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
         return minimum_ratio + (1 - minimum_ratio) * 0.5 * (1 + math.cos(math.pi * min(1.0, max(0.0, progress))))
-    if name in {"cosine_with_warmup", "constant_with_warmup"}:
-        return torch.optim.lr_scheduler.LambdaLR(optimizer, scale)
-    if name == "reduce_on_plateau":
-        return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min")
-    raise ValueError(f"Unsupported scheduler.name {name!r}")
+    return torch.optim.lr_scheduler.LambdaLR(optimizer, scale)

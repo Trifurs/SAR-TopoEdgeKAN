@@ -23,8 +23,6 @@ class SynchronousAugment:
     horizontal_flip_probability: float = 0.5
     vertical_flip_probability: float = 0.5
     rotate90_probability: float = 0.0
-    feature_dropout_probability: float | None = None
-    sensor_missing_simulation_probability: float | None = None
     input_mode: str = "s1_terrain"
 
     def __post_init__(self) -> None:
@@ -38,10 +36,6 @@ class SynchronousAugment:
             value = float(getattr(self, name))
             if not 0.0 <= value <= 1.0:
                 raise ValueError(f"{name} must be in [0, 1]")
-        if float(self.feature_dropout_probability or 0.0) != 0.0:
-            raise ValueError("feature dropout is not supported for the single-sensor model")
-        if float(self.sensor_missing_simulation_probability or 0.0) != 0.0:
-            raise ValueError("sensor-missing simulation is not supported for the single-sensor model")
 
     def __call__(self, sample: dict[str, Any]) -> dict[str, Any]:
         sample.setdefault("metadata", {})

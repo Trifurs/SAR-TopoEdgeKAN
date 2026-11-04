@@ -19,7 +19,6 @@ import argparse
 import csv
 from dataclasses import dataclass, field
 from datetime import date
-import hashlib
 import math
 from pathlib import Path
 import sys

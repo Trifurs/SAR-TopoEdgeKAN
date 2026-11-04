@@ -23,7 +23,6 @@ def make_prior(config: Mapping[str, Any]) -> KnownRangeHydrostaticPrior:
     return KnownRangeHydrostaticPrior(
         boundary_quantile=float(config.get("hydrostatic_boundary_quantile", 0.25)),
         minimum_depth_m=float(config.get("hydrostatic_minimum_depth_m", 0.10)),
-        componentwise=bool(config.get("hydrostatic_componentwise", True)),
     )
 
 
@@ -100,11 +99,8 @@ class MatchedComparator(nn.Module):
             with torch.random.fork_rng(devices=[]):
                 self.heads = SARTopoEdgeKANHeads(
                     width, int(self.discussion_model_config["group_norm_groups"]),
-                    epsilon=float(self.discussion_model_config["uncertainty_epsilon"]),
-                    maximum=float(self.discussion_model_config["uncertainty_maximum"]),
+                    epsilon=float(self.discussion_model_config["depth_epsilon"]),
                     depth_initialization_bias=float(self.discussion_model_config["depth_initialization_bias"]),
-                    uncertainty_initial_scale_m=float(self.discussion_model_config["uncertainty_initial_scale_m"]),
-                    uncertainty_head_enabled=False,
                     known_range_hydrostatic_enabled=prior_enabled,
                     hydrostatic_residual_max_log_abs=float(self.discussion_model_config["hydrostatic_residual_max_log_abs"]),
                 )
@@ -117,7 +113,6 @@ class MatchedComparator(nn.Module):
             "known_flood_range_enabled": True,
             "known_range_hydrostatic_enabled": self.hydrostatic_prior is not None,
             "topographic_affinity_enabled": False,
-            "uncertainty_head_enabled": False,
         }
 
     def graph_identity(self):
@@ -138,8 +133,7 @@ class MatchedComparator(nn.Module):
                 )
             outputs = self.heads(value, hydrostatic_prior=prior)
             outputs["depth"] = outputs["conditional_depth"] * (flood_range > 0.5)
-            outputs["expected_depth"] = outputs["depth"]
-        outputs.update({"auxiliary_depths": [], "graph_diagnostics": {}, "component_flags": self.component_flags()})
+        outputs.update({"graph_diagnostics": {}, "component_flags": self.component_flags()})
         return outputs
 
 
@@ -165,7 +159,7 @@ class TerrainOnlyModel(SARTopoEdgeKAN):
             )
         else:
             graph_diagnostics = {}
-        decoded, auxiliaries, gates = self.decoder(
+        decoded, gates = self.decoder(
             bottleneck, terrain, terrain, physical["dem_valid_fractions"], inputs["dem_valid"], None
         )
         prior = surface = None
@@ -173,11 +167,10 @@ class TerrainOnlyModel(SARTopoEdgeKAN):
             prior, surface = self.hydrostatic_prior(
                 physical["dsm_elevation"], inputs["valid_depth_mask"], inputs["dem_valid"]
             )
-        outputs = self.heads(decoded, physical.get("topographic_context_positions"), hydrostatic_prior=prior)
+        outputs = self.heads(decoded, hydrostatic_prior=prior)
         outputs["depth"] = outputs["conditional_depth"] * (inputs["valid_depth_mask"] > 0.5)
-        outputs["expected_depth"] = outputs["depth"]
         outputs.update({
-            "physical_features": physical, "auxiliary_depths": auxiliaries,
+            "physical_features": physical,
             "graph_diagnostics": graph_diagnostics, "decoder_gates": gates,
             "sar_diagnostics": {}, "fusion_diagnostics": {},
             "component_flags": self.component_flags(), "hydrostatic_water_surface": surface,
@@ -213,10 +206,9 @@ class HydrostaticPriorOnly(nn.Module):
         )
         depth = prior * (inputs["valid_depth_mask"] > 0.5)
         return {
-            "depth": depth, "positive_depth": prior, "conditional_depth": prior,
-            "expected_depth": depth, "uncertainty_scale": torch.full_like(depth, 0.35),
+            "depth": depth, "conditional_depth": prior,
             "hydrostatic_prior_depth": prior, "hydrostatic_water_surface": surface,
-            "auxiliary_depths": [], "component_flags": self.component_flags(),
+            "component_flags": self.component_flags(),
         }
 
 
@@ -234,8 +226,6 @@ def build_discussion_model(config: Mapping[str, Any]) -> nn.Module:
         return HydrostaticPriorOnly(config, raw_names)
     if architecture != "sar_topo_edge_kan":
         raise ValueError(f"Unsupported discussion architecture: {architecture}")
-    if model_config.get("global_depth_calibration_enabled") or model_config.get("depth_range_calibration_enabled"):
-        raise ValueError("Discussion controls require the current uncalibrated production architecture")
     cls = TerrainOnlyModel if discussion.get("observation_mode", "full") == "terrain_only" else SARTopoEdgeKAN
     model = cls(model_config, bands, raw_names, spec)
     mode = str(discussion.get("edge_function", "kan"))

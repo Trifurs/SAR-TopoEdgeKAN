@@ -14,7 +14,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from models.efficient_blocks import residual_path_scale
 from models.kan_layers import KANLinear
 from models.terrain_features import path_barrier_proxy
 from models.graph_utils import DIRECTIONS, _masked_pool, _roll_with_boundary_mask
@@ -28,11 +27,6 @@ S1_EDGE_FEATURE_NAMES = (
     "local_relief",
     "distance",
 )
-
-
-def _inverse_sigmoid(value: float) -> float:
-    value = min(max(float(value), 1.0e-5), 1.0 - 1.0e-5)
-    return math.log(value / (1.0 - value))
 
 
 def _inverse_softplus(value: float) -> float:
@@ -54,10 +48,6 @@ class HydroEdgeKAN(nn.Module):
         feature_scales: Sequence[float] | None = None,
         gamma_init_effective: float = 0.02,
         gamma_max: float = 0.25,
-        gamma_parameterization: str = "positive",
-        latent_compatibility_enabled: bool = True,
-        path_barrier_mode: str = "full_resolution",
-        drop_path_probability: float = 0.0,
         diagnostic_mode: bool = False,
         diagnostics_enabled: bool | None = None,
     ) -> None:
@@ -66,19 +56,8 @@ class HydroEdgeKAN(nn.Module):
             raise ValueError("HydroEdgeKAN heads must be 2 or 4 and divide channels")
         if graph_feature_stride not in {4, 8}:
             raise ValueError("HydroEdgeKAN graph_feature_stride must be 4 or 8")
-        gamma_parameterization = str(gamma_parameterization)
-        valid_gamma = (
-            0 <= gamma_init_effective < gamma_max
-            if gamma_parameterization == "positive"
-            else abs(gamma_init_effective) < gamma_max
-        )
-        if (
-            terrain_pixel_size_m <= 0
-            or gamma_max <= 0
-            or gamma_parameterization not in {"positive", "signed"}
-            or not valid_gamma
-        ):
-            raise ValueError("invalid graph scale, pixel size, or gamma bounds")
+        if terrain_pixel_size_m <= 0 or gamma_max <= 0 or abs(gamma_init_effective) >= gamma_max:
+            raise ValueError("invalid graph scale, pixel size, or signed gamma bounds")
         centers = list(feature_centers or [0.0] * 6)
         scales = list(feature_scales or [0.10, 0.10, 1.0, 1.0, 1.0, 1.0])
         if len(centers) != 6 or len(scales) != 6 or any(float(value) <= 0 for value in scales):
@@ -91,16 +70,6 @@ class HydroEdgeKAN(nn.Module):
             float(self.graph_feature_stride) * float(terrain_pixel_size_m)
         )
         self.gamma_max = float(gamma_max)
-        self.gamma_parameterization = gamma_parameterization
-        self.latent_compatibility_enabled = bool(latent_compatibility_enabled)
-        self.path_barrier_mode = str(path_barrier_mode)
-        self.drop_path_probability = float(drop_path_probability)
-        if not 0.0 <= self.drop_path_probability < 1.0:
-            raise ValueError("TAE-KAN drop-path probability must lie in [0, 1)")
-        if self.path_barrier_mode not in {"full_resolution", "graph_scale"}:
-            raise ValueError(
-                "HydroEdgeKAN path_barrier_mode must be full_resolution or graph_scale"
-            )
         self.diagnostic_mode = (
             bool(diagnostic_mode)
             if diagnostics_enabled is None
@@ -137,11 +106,6 @@ class HydroEdgeKAN(nn.Module):
         for projection in self.latent_compatibility:
             nn.init.zeros_(projection.weight)
             nn.init.zeros_(projection.bias)
-        if not self.latent_compatibility_enabled:
-            # The LCA is intentionally absent in this variant.  Keeping its
-            # tensors in the state dictionary preserves checkpoint schema while
-            # excluding them from optimization and distributed gradient checks.
-            self.latent_compatibility.requires_grad_(False)
         # A zero-initialized within-head mixer lets the graph learn which
         # latent channels should exchange topographic messages without
         # adding dense channel projections.
@@ -164,22 +128,12 @@ class HydroEdgeKAN(nn.Module):
             torch.tensor([_inverse_softplus(value) for value in (0.5, 0.25, 0.10, 0.15, 0.10, 0.02)])
         )
         self.prior_bias = nn.Parameter(torch.zeros(heads))
-        initial_gamma = (
-            _inverse_sigmoid(float(gamma_init_effective) / float(gamma_max))
-            if self.gamma_parameterization == "positive"
-            else math.atanh(float(gamma_init_effective) / float(gamma_max))
-        )
+        initial_gamma = math.atanh(float(gamma_init_effective) / float(gamma_max))
         self.raw_gamma = nn.Parameter(torch.full((heads,), initial_gamma))
 
     @property
     def gamma(self) -> torch.Tensor:
-        if self.gamma_parameterization == "signed":
-            return self.gamma_max * torch.tanh(self.raw_gamma)
-        # A smooth positive gate cannot strand a head on the zero side of a
-        # hard clamp or saturate at a signed boundary.  The small configured
-        # budget keeps this operator a topographic diffusion refinement rather
-        # than an unconstrained replacement for the bottleneck features.
-        return self.gamma_max * torch.sigmoid(self.raw_gamma)
+        return self.gamma_max * torch.tanh(self.raw_gamma)
 
     @property
     def prior_scales(self) -> torch.Tensor:
@@ -260,53 +214,24 @@ class HydroEdgeKAN(nn.Module):
         signed_dz = (neighbour_z - z.unsqueeze(1)) / distance.clamp_min(1.0e-6)
         edge_slope = signed_dz.abs()
         relative_height = 0.5 * (relative.unsqueeze(1) + neighbour_relative)
-        if self.path_barrier_mode == "full_resolution":
-            path_barrier, path_valid = path_barrier_proxy(
-                physical["dsm_elevation"], dem_full, self.graph_feature_stride,
-                physical["z_ground_proxy"], statistic="max", quantile=0.9,
-            )
-            path_barrier = torch.stack(
-                [
-                    F.adaptive_avg_pool2d(path_barrier[:, index], size)
-                    for index in range(len(DIRECTIONS))
-                ],
-                dim=1,
-            )
-            path_valid = torch.stack(
-                [
-                    F.adaptive_avg_pool2d(path_valid[:, index], size)
-                    for index in range(len(DIRECTIONS))
-                ],
-                dim=1,
-            )
-        else:
-            # A graph edge joins adjacent stride-sized terrain cells. Pool each
-            # cell's DSM crest before constructing the eight-neighbour edge to
-            # retain the barrier interpretation without 65 full-resolution
-            # shifts per forward pass. This introduces no trainable parameters
-            # and preserves the checkpoint schema.
-            invalid_fill = torch.finfo(physical["dsm_elevation"].dtype).min
-            dsm_crest = F.adaptive_max_pool2d(
-                torch.where(
-                    dem_full > 0.5,
-                    physical["dsm_elevation"],
-                    torch.full_like(physical["dsm_elevation"], invalid_fill),
-                ),
-                size,
-            )
-            dsm_crest = torch.where(
-                dem_fraction > 0.0, dsm_crest, torch.zeros_like(dsm_crest)
-            )
-            ground = _masked_pool(physical["z_ground_proxy"], dem_full, size)
-            neighbour_crest, boundary = self._stack_roll(dsm_crest)
-            neighbour_ground, _ = self._stack_roll(ground)
-            path_barrier = F.relu(
-                torch.maximum(dsm_crest.unsqueeze(1), neighbour_crest)
-                - torch.maximum(ground.unsqueeze(1), neighbour_ground)
-            )
-            pooled_valid = (dem_fraction > 0.5).to(dem_fraction.dtype)
-            neighbour_valid, _ = self._stack_roll(pooled_valid)
-            path_valid = pooled_valid.unsqueeze(1) * neighbour_valid * boundary
+        path_barrier, path_valid = path_barrier_proxy(
+            physical["dsm_elevation"], dem_full, self.graph_feature_stride,
+            physical["z_ground_proxy"],
+        )
+        path_barrier = torch.stack(
+            [
+                F.adaptive_avg_pool2d(path_barrier[:, index], size)
+                for index in range(len(DIRECTIONS))
+            ],
+            dim=1,
+        )
+        path_valid = torch.stack(
+            [
+                F.adaptive_avg_pool2d(path_valid[:, index], size)
+                for index in range(len(DIRECTIONS))
+            ],
+            dim=1,
+        )
         relief_pair = 0.5 * (relief.unsqueeze(1) + neighbour_relief)
         distance_normalized = (
             distance / max(self.graph_pixel_size_m, 1.0)
@@ -383,8 +308,6 @@ class HydroEdgeKAN(nn.Module):
             )
             compatibility = (
                 torch.sigmoid(self.latent_compatibility[head](pair.reshape(-1, 2, *size))).reshape(features.shape[0], len(DIRECTIONS), 1, *size)
-                if self.latent_compatibility_enabled
-                else torch.ones_like(affinity)
             )
             gate = affinity * observation * compatibility
             denominator = gate.sum(1, keepdim=True).clamp_min(1.0e-6)
@@ -407,9 +330,6 @@ class HydroEdgeKAN(nn.Module):
                 base_outputs.append(base)
                 spline_outputs.append(spline)
         update = torch.cat(messages, dim=1)
-        update = update * residual_path_scale(
-            features, self.drop_path_probability, self.training
-        )
         output = features + update
         coefficient_magnitude, coefficient_smoothness = self.spline_regularization()
         monotonicity, curve_smoothness, monotonicity_diagnostics = self.function_regularization()

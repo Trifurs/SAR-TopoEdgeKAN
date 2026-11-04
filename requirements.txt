@@ -1,10 +1,8 @@
 torch
 torchvision
 numpy
-pandas
 rasterio
 scipy
-scikit-learn
 matplotlib
 tensorboard
 tqdm

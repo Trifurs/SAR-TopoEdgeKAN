@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import tempfile
-from typing import Any, Sequence
+from typing import Sequence
 
 import numpy as np
 import rasterio
@@ -73,12 +73,3 @@ def write_geotiff(
         if temporary.exists():
             temporary.unlink()
     return output
-
-
-def reference_grid_from_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "crs": metadata["crs"],
-        "transform": metadata["transform"],
-        "width": int(metadata["width"]),
-        "height": int(metadata["height"]),
-    }

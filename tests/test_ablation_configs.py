@@ -44,15 +44,15 @@ def test_ablation_design_contains_only_edge_kan_removal() -> None:
     assert observed == {frozenset(("TAE-KAN",))}
 
 
-def test_disabled_top_level_paths_are_frozen() -> None:
+def test_removed_graph_has_no_resident_parameters() -> None:
     no_tae = build_model(_config("wo_tae_kan"))
-    assert not any(parameter.requires_grad for parameter in no_tae.graph.parameters())
+    assert no_tae.graph is None
+    assert not any(name.startswith("graph.") for name in no_tae.state_dict())
 
 
 def test_production_tae_uses_a_bounded_identity_initialized_residual() -> None:
     config = load_config(Path("configs/sar_topo_edge_kan.xml"))
     model = build_model(config)
-    assert config["model"]["kan_gamma_parameterization"] == "signed"
     assert config["model"]["kan_gamma_init_effective"] == 0.0
     assert config["model"]["kan_gamma_max"] == 0.04
     assert model.graph.gamma.tolist() == pytest.approx([0.0, 0.0])

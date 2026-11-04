@@ -132,7 +132,7 @@ def run_model(
             samples=1,
             output_pixels=int(prediction.size),
         )
-        aggregator.add(sample_id, event_id, prediction, target, np.ones_like(prediction), valid)
+        aggregator.add(sample_id, event_id, prediction, target, valid)
         if save_predictions:
             with rasterio.open(label_path) as reference:
                 write_geotiff(

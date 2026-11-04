@@ -48,7 +48,7 @@ def evaluate_prior(output=None, *, max_batches=None, device_name="cuda"):
     loader = DataLoader(dataset, batch_size=config["training"]["batch_size"], shuffle=False, num_workers=0)
     normalizer = dataset.normalizer
     bins = resolve_depth_stratification_bins(config["loss"], normalizer)
-    criterion = CompositeFloodDepthLoss(config["loss"], bins, normalizer.train_depth_bins, normalizer.train_depth_bin_counts)
+    criterion = CompositeFloodDepthLoss(config["loss"], bins, normalizer.train_depth_bins)
     model = build_model(config).to(device).eval()
     amp_enabled, amp_dtype, _ = resolve_amp(device, config["training"]["amp"], config["training"]["amp_dtype"])
     summary, samples, events, depth_bins = evaluate_loader(

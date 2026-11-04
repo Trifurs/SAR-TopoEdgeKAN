@@ -6,7 +6,6 @@ from pathlib import Path
 
 from utils.evaluation_suite import (
     completed_run_directories,
-    select_runs,
     select_runs_from_roots,
 )
 
@@ -36,8 +35,8 @@ def test_run_discovery_requires_complete_metadata_and_selects_latest_per_model(
     (incomplete / "best_raw.pth").touch()
 
     assert completed_run_directories(tmp_path) == sorted([old, new, comparator])
-    assert select_runs(tmp_path, latest_only=True) == [new, comparator]
-    assert select_runs(tmp_path, latest_only=False) == sorted([old, new, comparator])
+    assert select_runs_from_roots((tmp_path,), latest_only=True) == [new, comparator]
+    assert select_runs_from_roots((tmp_path,), latest_only=False) == sorted([old, new, comparator])
 
 
 def test_multiple_explicit_roots_include_train_and_ablation_without_other_branches(

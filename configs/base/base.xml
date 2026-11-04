@@ -10,10 +10,6 @@
     <train>
       <output type="none">none</output>
       <resume type="none">none</resume>
-      <init_checkpoint type="none">none</init_checkpoint>
-      <init_weights type="str">raw</init_weights>
-      <init_transfer type="str">strict</init_transfer>
-      <trainable_scope type="str">all</trainable_scope>
       <allow_fingerprint_mismatch type="bool">false</allow_fingerprint_mismatch>
       <max_train_batches type="none">none</max_train_batches>
       <max_val_batches type="none">none</max_val_batches>
@@ -63,8 +59,6 @@
     <min_delta type="float">0.0</min_delta>
     <early_stop_patience type="int">30</early_stop_patience>
     <best_metric type="str">balanced_composite_error_m</best_metric>
-    <best_weights type="str">raw</best_weights>
-    <ema_enabled type="bool">false</ema_enabled>
     <selection_depth_stratification type="str">primary</selection_depth_stratification>
   </training>
   <optimizer>

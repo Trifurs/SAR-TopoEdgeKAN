@@ -6,10 +6,8 @@ import pytest
 import torch
 
 from models.efficient_blocks import (
-    EfficientResidualBlock,
     InvertedResidualBlock,
     SpatialResidualBlock,
-    residual_path_scale,
     residual_block,
 )
 from models.s1_hydrology_backbone import (
@@ -22,7 +20,6 @@ from models.s1_hydrology_backbone import (
 @pytest.mark.parametrize(
     ("kind", "expected_type"),
     (
-        ("efficient", EfficientResidualBlock),
         ("inverted", InvertedResidualBlock),
         ("spatial", SpatialResidualBlock),
     ),
@@ -40,21 +37,10 @@ def test_residual_block_preserves_shape_and_gradient(kind, expected_type):
 
 
 def test_residual_block_rejects_unknown_kind():
-    with pytest.raises(ValueError, match="efficient.*inverted.*spatial"):
+    with pytest.raises(ValueError, match="inverted.*spatial"):
         residual_block("unknown", channels=16, dropout=0.0, groups=8)
 
 
-def test_residual_path_scale_is_shared_per_sample_and_expectation_preserving():
-    reference = torch.ones(64, 8, 4, 4)
-    torch.manual_seed(17)
-    scale = residual_path_scale(reference, 0.5, training=True)
-
-    assert scale.shape == (64, 1, 1, 1)
-    assert set(scale.unique().tolist()) == {0.0, 2.0}
-    assert torch.equal(
-        residual_path_scale(reference, 0.5, training=False),
-        torch.ones(64, 1, 1, 1),
-    )
 
 
 def test_joint_sar_encoder_preserves_multiscale_contract():
@@ -135,7 +121,6 @@ def test_hydrology_context_signed_residual_can_learn_below_identity():
         dropout=0.0,
         residual_init=0.0,
         residual_max=0.5,
-        residual_parameterization="signed",
     ).eval()
     with torch.no_grad():
         context.gamma.fill_(-0.1)

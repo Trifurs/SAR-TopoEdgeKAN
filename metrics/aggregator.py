@@ -9,7 +9,6 @@ import numpy as np
 from scipy.stats import spearmanr
 
 from metrics.depth_metrics import DEPTH_METRIC_NAMES, depth_metrics, prefixed
-from metrics.uncertainty_metrics import uncertainty_metrics
 
 
 def _nanmean(values: list[float]) -> float:
@@ -38,7 +37,6 @@ class EvaluationAggregator:
         event_id: str,
         prediction: np.ndarray,
         target: np.ndarray,
-        scale: np.ndarray,
         valid_mask: np.ndarray,
         day_difference: np.ndarray | None = None,
         observation_feature: np.ndarray | None = None,
@@ -46,7 +44,6 @@ class EvaluationAggregator:
         mask = np.asarray(valid_mask).astype(bool).reshape(-1)
         prediction_flat = np.asarray(prediction).reshape(-1)[mask]
         target_flat = np.asarray(target).reshape(-1)[mask]
-        scale_flat = np.asarray(scale).reshape(-1)[mask]
         metrics = depth_metrics(prediction_flat, target_flat)
         row: dict[str, Any] = {"sample_id": sample_id, "source_event_id": event_id, **metrics}
         if day_difference is not None:
@@ -61,7 +58,6 @@ class EvaluationAggregator:
                 "event_id": event_id,
                 "prediction": prediction_flat,
                 "target": target_flat,
-                "scale": scale_flat,
                 "row": row,
             }
         )
@@ -72,7 +68,6 @@ class EvaluationAggregator:
             raise RuntimeError("No evaluation records were added")
         predictions = np.concatenate([record["prediction"] for record in self.records])
         targets = np.concatenate([record["target"] for record in self.records])
-        scales = np.concatenate([record["scale"] for record in self.records])
         summary: dict[str, Any] = prefixed(depth_metrics(predictions, targets), "pixel_micro_")
         sample_rows = [record["row"] for record in self.records]
         for metric in DEPTH_METRIC_NAMES:
@@ -202,7 +197,6 @@ class EvaluationAggregator:
             + summary["event_macro_mae"]
             + summary["event_depth_hierarchical_macro_mae"]
         )
-        summary.update(prefixed(uncertainty_metrics(predictions, targets, scales), "uncertainty_"))
         for diagnostic in (
             "positive_region_wse_laplacian",
             "reference_positive_region_wse_laplacian",

@@ -160,8 +160,8 @@ def run_from_config(config_path: Path) -> dict[str, Any]:
     )
     if kind == "sar_topo_edge_kan":
         weights = str(evaluation.get("weights", "raw"))
-        if weights not in {"raw", "ema"}:
-            raise RuntimeConfigError("runtime.evaluation.weights must be 'raw' or 'ema'")
+        if weights != "raw":
+            raise RuntimeConfigError("Only raw model weights are supported")
         validity_mask = evaluation.get("validity_mask")
         try:
             summary = run_sar_topo_edge_kan_evaluation(

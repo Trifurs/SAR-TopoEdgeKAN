@@ -25,7 +25,6 @@ from tools.evaluate_sar_topo_edge_kan import (
     dataset_fingerprint,
     embed_source_fingerprints,
     evaluate_loader,
-    frozen_depth_balance_for_config,
 )
 from utils.checkpoint import load_checkpoint
 from utils.config import load_config
@@ -70,7 +69,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--save-geotiff", action="store_true")
     parser.add_argument("--save-visualization", action="store_true")
-    parser.add_argument("--weights", choices=("raw", "ema"), default="raw")
     return parser.parse_args()
 
 
@@ -89,10 +87,6 @@ def main() -> int:
         expected_fingerprint=dataset_fingerprint(config),
         map_location=device,
     )
-    if args.weights == "ema":
-        if checkpoint.get("ema_model") is None:
-            raise ValueError("--weights ema requested but checkpoint has no EMA state")
-        model.load_state_dict(checkpoint["ema_model"], strict=True)
     loader = DataLoader(Subset(dataset, [index]), batch_size=1, shuffle=False)
     normalizer = RobustNormalizer(Path(config["dataset"]["train_stats"]), dataset.contract)
     depth_bins = resolve_depth_stratification_bins(config["loss"], normalizer)
@@ -100,8 +94,6 @@ def main() -> int:
         config["loss"],
         depth_bins,
         normalizer.train_depth_bins,
-        normalizer.train_depth_bin_counts,
-        frozen_depth_balance_for_config(config),
     )
     sample_id = dataset.rows[index]["sample_id"]
     output = args.output or (

@@ -122,8 +122,6 @@ def path_barrier_proxy(
     pixel_step: int,
     ground: torch.Tensor | None = None,
     directions: Sequence[tuple[int, int]] | None = None,
-    statistic: str = "max",
-    quantile: float = 0.9,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute high-resolution DSM crest barriers for vectorized graph edges.
 
@@ -134,10 +132,6 @@ def path_barrier_proxy(
 
     if pixel_step < 1:
         raise ValueError("pixel_step must be >= 1")
-    if statistic not in {"max", "quantile"}:
-        raise ValueError("statistic must be max or quantile")
-    if statistic == "quantile" and not 0.0 < quantile <= 1.0:
-        raise ValueError("quantile must lie in (0, 1]")
     dirs = tuple(directions or ((-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1)))
     valid = (valid > 0.5).to(elevation.dtype)
     ground = elevation if ground is None else ground
@@ -151,7 +145,7 @@ def path_barrier_proxy(
     for dy, dx in dirs:
         opposite = path_cache.get((-dy, -dx))
         if opposite is None:
-            if statistic == "max" and (dy == 0) != (dx == 0):
+            if (dy == 0) != (dx == 0):
                 # Horizontal and vertical paths are one-sided sliding windows;
                 # one pooling kernel replaces ``pixel_step + 1`` shifts.
                 pad = (
@@ -206,15 +200,7 @@ def path_barrier_proxy(
                     values,
                     torch.full_like(values, torch.finfo(values.dtype).min),
                 )
-                crest = (
-                    values.max(dim=1).values
-                    if statistic == "max"
-                    else torch.quantile(
-                        values.masked_fill(path_valid.unsqueeze(1) < 0.5, 0.0),
-                        quantile,
-                        dim=1,
-                    )
-                )
+                crest = values.max(dim=1).values
         else:
             opposite_crest, opposite_valid = opposite
             offset_y, offset_x = dy * pixel_step, dx * pixel_step
@@ -249,10 +235,8 @@ class TerrainFeaturePyramid(nn.Module):
         self, input_channels: int, channels: list[int], dropout: float, groups: int,
         pixel_size_m: float, terrain_band_names: Sequence[str],
         ground_proxy_kernel_size: int = 9, physics_elevation: str = "z_ground_proxy",
-        block_kind: str = "efficient",
+        block_kind: str = "inverted",
         topographic_context_scales_m: Sequence[float] | None = None,
-        pyramid_mode: str = "hierarchical",
-        refine_enabled: bool = True,
     ) -> None:
         super().__init__()
         if pixel_size_m <= 0:
@@ -270,10 +254,6 @@ class TerrainFeaturePyramid(nn.Module):
         self.slope_index = names.index("slope_deg") if "slope_deg" in names else None
         self.ground_proxy_kernel_size = int(ground_proxy_kernel_size)
         self.physics_elevation = physics_elevation
-        self.pyramid_mode = str(pyramid_mode)
-        self.refine_enabled = bool(refine_enabled)
-        if self.pyramid_mode not in {"hierarchical", "direct"}:
-            raise ValueError("terrain pyramid_mode must be hierarchical or direct")
         self.topographic_context_scales_m = tuple(
             float(value) for value in (topographic_context_scales_m or ())
         )
@@ -282,74 +262,30 @@ class TerrainFeaturePyramid(nn.Module):
         if tuple(sorted(set(self.topographic_context_scales_m))) != self.topographic_context_scales_m:
             raise ValueError("topographic context scales must be strictly increasing")
         base_channels = input_channels + 8
-        if self.pyramid_mode == "hierarchical":
-            self.stem = nn.Sequential(
-                ConvNormAct(base_channels, channels[0], 3, groups=groups),
-                residual_block(block_kind, channels[0], dropout, groups),
-            )
-            self.down = nn.ModuleList([
-                nn.Sequential(
-                    ConvNormAct(channels[i - 1], channels[i], 3, 2, groups),
-                    residual_block(block_kind, channels[i], dropout, groups),
-                )
-                for i in range(1, len(channels))
-            ])
-            self.direct_projection = None
-            self.context_adapter = (
-                nn.Conv2d(
-                    len(self.topographic_context_scales_m),
-                    channels[0],
-                    3,
-                    padding=1,
-                    bias=False,
-                )
-                if self.topographic_context_scales_m
-                else None
-            )
-            self.context_adapters = None
-        else:
-            # Every level sees pooled physical descriptors directly.  This avoids
-            # spending most of the terrain budget re-encoding features that were
-            # already analytically derived at full resolution, and prevents fine
-            # terrain cues from having to survive three learned downsamplers.
-            self.stem = None
-            self.down = nn.ModuleList()
-            self.direct_projection = nn.ModuleList(
-                [
-                    nn.Sequential(
-                        ConvNormAct(base_channels, width, 3, groups=groups),
-                        *(
-                            [residual_block(block_kind, width, dropout, groups)]
-                            if self.refine_enabled
-                            else []
-                        ),
-                    )
-                    for width in channels
-                ]
-            )
-            self.context_adapter = None
-            self.context_adapters = (
-                nn.ModuleList(
-                    [
-                        nn.Conv2d(
-                            len(self.topographic_context_scales_m),
-                            width,
-                            1,
-                            bias=False,
-                        )
-                        for width in channels
-                    ]
-                )
-                if self.topographic_context_scales_m
-                else None
-            )
-        adapters = (
-            [self.context_adapter]
-            if self.context_adapter is not None
-            else list(self.context_adapters or ())
+        self.stem = nn.Sequential(
+            ConvNormAct(base_channels, channels[0], 3, groups=groups),
+            residual_block(block_kind, channels[0], dropout, groups),
         )
-        for adapter in adapters:
-            nn.init.zeros_(adapter.weight)
+        self.down = nn.ModuleList([
+            nn.Sequential(
+                ConvNormAct(channels[i - 1], channels[i], 3, 2, groups),
+                residual_block(block_kind, channels[i], dropout, groups),
+            )
+            for i in range(1, len(channels))
+        ])
+        self.context_adapter = (
+            nn.Conv2d(
+                len(self.topographic_context_scales_m),
+                channels[0],
+                3,
+                padding=1,
+                bias=False,
+            )
+            if self.topographic_context_scales_m
+            else None
+        )
+        if self.context_adapter is not None:
+            nn.init.zeros_(self.context_adapter.weight)
 
     def forward(self, normalized: torch.Tensor, raw: torch.Tensor, dem_valid: torch.Tensor):
         valid = (dem_valid > 0.5).to(raw.dtype)
@@ -395,50 +331,18 @@ class TerrainFeaturePyramid(nn.Module):
         context_tensor = (
             torch.cat(context_positions, dim=1) if context_positions else None
         )
-        if self.pyramid_mode == "hierarchical":
-            assert self.stem is not None
-            stem = self.stem(base)
-            if self.context_adapter is not None:
-                assert context_tensor is not None
-                stem = stem + self.context_adapter(context_tensor)
-            features = [stem * valid]
-            fractions = [valid]
-            for layer in self.down:
-                features.append(layer(features[-1]))
-                fraction = F.adaptive_avg_pool2d(valid, features[-1].shape[-2:])
-                fractions.append(fraction)
-                features[-1] = features[-1] * fraction
-        else:
-            assert self.direct_projection is not None
-            height, width = base.shape[-2:]
-            features, fractions = [], []
-            for index, layer in enumerate(self.direct_projection):
-                divisor = 2**index
-                size = (
-                    (height + divisor - 1) // divisor,
-                    (width + divisor - 1) // divisor,
-                )
-                pooled = (
-                    base
-                    if index == 0
-                    else F.adaptive_avg_pool2d(base, size)
-                )
-                fraction = (
-                    valid
-                    if index == 0
-                    else F.adaptive_avg_pool2d(valid, size)
-                )
-                feature = layer(pooled)
-                if self.context_adapters is not None:
-                    assert context_tensor is not None
-                    context = (
-                        context_tensor
-                        if index == 0
-                        else F.adaptive_avg_pool2d(context_tensor, size)
-                    )
-                    feature = feature + self.context_adapters[index](context)
-                features.append(feature * fraction)
-                fractions.append(fraction)
+        assert self.stem is not None
+        stem = self.stem(base)
+        if self.context_adapter is not None:
+            assert context_tensor is not None
+            stem = stem + self.context_adapter(context_tensor)
+        features = [stem * valid]
+        fractions = [valid]
+        for layer in self.down:
+            features.append(layer(features[-1]))
+            fraction = F.adaptive_avg_pool2d(valid, features[-1].shape[-2:])
+            fractions.append(fraction)
+            features[-1] = features[-1] * fraction
         physical = {
             "dsm_elevation": elevation,
             "z_local_mean": z_local_mean,

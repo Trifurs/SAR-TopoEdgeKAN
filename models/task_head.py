@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import math
-
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -51,7 +49,6 @@ class KnownRangeHydrostaticPrior(nn.Module):
         *,
         boundary_quantile: float = 0.25,
         minimum_depth_m: float = 0.10,
-        componentwise: bool = False,
     ) -> None:
         super().__init__()
         if not 0.0 <= boundary_quantile <= 1.0:
@@ -60,7 +57,6 @@ class KnownRangeHydrostaticPrior(nn.Module):
             raise ValueError("hydrostatic minimum depth must be positive")
         self.boundary_quantile = float(boundary_quantile)
         self.minimum_depth_m = float(minimum_depth_m)
-        self.componentwise = bool(componentwise)
 
     @staticmethod
     def _component_labels(support: torch.Tensor) -> torch.Tensor:
@@ -150,144 +146,5 @@ class KnownRangeHydrostaticPrior(nn.Module):
                 stride=1,
             )
             boundary = support & (eroded < 0.5)
-            if self.componentwise:
-                prior, water_surface = self._componentwise_prior(
-                    elevation, support, boundary
-                )
-            else:
-                flat_boundary = elevation.masked_fill(~boundary, torch.nan).flatten(1)
-                flat_support = elevation.masked_fill(~support, torch.nan).flatten(1)
-                boundary_level = torch.nanquantile(
-                    flat_boundary, self.boundary_quantile, dim=1, keepdim=True
-                )
-                support_level = torch.nanquantile(
-                    flat_support, self.boundary_quantile, dim=1, keepdim=True
-                )
-                level = torch.where(
-                    torch.isfinite(boundary_level), boundary_level, support_level
-                )
-                level = torch.nan_to_num(level, nan=0.0)
-                water_surface = (
-                    level[:, :, None, None] + self.minimum_depth_m
-                ).expand_as(elevation)
-                prior = (water_surface - elevation).clamp_min(
-                    self.minimum_depth_m
-                )
-                prior = torch.where(
-                    support, prior, torch.full_like(prior, self.minimum_depth_m)
-                )
+            prior, water_surface = self._componentwise_prior(elevation, support, boundary)
         return prior.to(elevation_m.dtype), water_surface.to(elevation_m.dtype)
-
-
-class ContextualDepthRangeCalibration(nn.Module):
-    """Small, identity-initialized calibration internal to the depth head.
-
-    Robust pixel losses can compress the upper tail even when decoded spatial
-    structure remains informative. This branch predicts bounded, spatially
-    varying logit scale and bias residuals from decoded features, the baseline
-    depth logit, and mask-agnostic patch context. A fixed smooth tail support
-    protects the already accurate shallow regime. It never consumes a flood or
-    label-validity mask.
-    """
-
-    def __init__(
-        self,
-        channels: int,
-        groups: int,
-        *,
-        width: int = 16,
-        maximum_scale_residual: float = 1.0,
-        maximum_bias_residual: float = 2.0,
-        tail_threshold_m: float = 0.46,
-        tail_temperature_m: float = 0.10,
-        depth_epsilon: float = 0.001,
-        strength: float = 1.0,
-        mode: str = "predicted_tail",
-    ) -> None:
-        super().__init__()
-        if min(channels, width) <= 0:
-            raise ValueError("depth-range calibration channels must be positive")
-        if maximum_scale_residual <= 0.0 or maximum_bias_residual <= 0.0:
-            raise ValueError("depth-range calibration bounds must be positive")
-        if tail_threshold_m < 0.0 or tail_temperature_m <= 0.0:
-            raise ValueError("depth-range calibration tail parameters are invalid")
-        if not math.isfinite(strength) or strength < 0.0:
-            raise ValueError("depth-range calibration strength must be finite and nonnegative")
-        self.mode = str(mode)
-        if self.mode not in {"predicted_tail", "all", "depth_log_scale"}:
-            raise ValueError(
-                "depth-range calibration mode must be predicted_tail, all, or "
-                "depth_log_scale"
-            )
-        self.local = nn.Sequential(
-            nn.Conv2d(channels + 1, width, 3, padding=1, bias=False),
-            nn.GroupNorm(group_count(width, groups), width),
-            nn.SiLU(inplace=True),
-        )
-        self.context = nn.Sequential(
-            nn.Conv2d(2 * width, width, 1, bias=False),
-            nn.GroupNorm(group_count(width, groups), width),
-            nn.SiLU(inplace=True),
-        )
-        self.projection = nn.Conv2d(width, 2, 1)
-        nn.init.zeros_(self.projection.weight)
-        nn.init.zeros_(self.projection.bias)
-        self.maximum_scale_residual = float(maximum_scale_residual)
-        self.maximum_bias_residual = float(maximum_bias_residual)
-        self.tail_threshold_m = float(tail_threshold_m)
-        self.tail_temperature_m = float(tail_temperature_m)
-        self.depth_epsilon = float(depth_epsilon)
-        # This is deliberately a non-persistent scalar: sweeping it changes no
-        # learned tensor and therefore keeps checkpoints fully compatible.  A
-        # value of zero recovers the pre-calibration depth head exactly.
-        self.strength = float(strength)
-        self.returns_depth = self.mode == "depth_log_scale"
-
-    def forward(
-        self, features: torch.Tensor, depth_logit: torch.Tensor
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if depth_logit.shape != features[:, :1].shape:
-            raise ValueError("depth calibration logit must match the feature grid")
-        local = self.local(
-            torch.cat((features, torch.tanh(depth_logit / 4.0)), dim=1)
-        )
-        context = self.context(
-            torch.cat(
-                (
-                    F.adaptive_avg_pool2d(local, 1),
-                    F.adaptive_max_pool2d(local, 1),
-                ),
-                dim=1,
-            )
-        )
-        raw_scale, raw_bias = self.projection(local + context).chunk(2, dim=1)
-        scale = self.maximum_scale_residual * torch.tanh(
-            raw_scale / self.maximum_scale_residual
-        )
-        bias = self.maximum_bias_residual * torch.tanh(
-            raw_bias / self.maximum_bias_residual
-        )
-        baseline_depth = F.softplus(depth_logit) + self.depth_epsilon
-        if self.mode == "predicted_tail":
-            support = torch.sigmoid(
-                (baseline_depth - self.tail_threshold_m)
-                / self.tail_temperature_m
-            )
-        else:
-            # The residual predictor already consumes local and patch context.
-            # Applying it everywhere avoids the circular failure mode in which a
-            # truly deep pixel receives no calibration gradient merely because
-            # the baseline currently predicts it as shallow.
-            support = torch.ones_like(baseline_depth)
-        effective_scale = self.strength * support * scale
-        effective_bias = self.strength * support * bias
-        if self.mode == "depth_log_scale":
-            # ``effective_scale`` is a residual in log-depth space.  It can
-            # express large event-dependent ranges without requiring the
-            # shallow-regime softplus logit itself to grow by tens of metres.
-            calibrated = (
-                F.softplus(depth_logit + effective_bias) + self.depth_epsilon
-            ) * torch.exp(effective_scale.clamp(-8.0, 8.0))
-        else:
-            calibrated = depth_logit * (1.0 + effective_scale) + effective_bias
-        return calibrated, effective_scale, effective_bias

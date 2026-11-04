@@ -42,10 +42,6 @@ def completed_run_directories(search_root: Path) -> list[Path]:
     return sorted(set(candidates))
 
 
-def select_runs(search_root: Path, *, latest_only: bool = True) -> list[Path]:
-    return select_runs_from_roots((search_root,), latest_only=latest_only)
-
-
 def select_runs_from_roots(
     search_roots: tuple[Path, ...], *, latest_only: bool = True
 ) -> list[Path]:
@@ -99,24 +95,10 @@ def evaluate_deep_run(
     kind, identifier = configured_model_kind(config)
     if kind == "traditional":
         raise ValueError(f"Traditional methods have no checkpoint run: {run}")
-    # SAR-TopoEdgeKAN writes train-only calibration beside every checkpoint. Prefer
-    # that immutable copy over a shared artifact that another run may replace.
-    frozen = run / "frozen_depth_weights.json"
-    if frozen.is_file() and isinstance(config.get("loss"), dict):
-        config["loss"]["frozen_depth_weights_artifact"] = str(frozen)
     selected_device = str(device or config.get("device", "auto"))
     selected_weights = "raw"
     checkpoint = run / "best_raw.pth"
     if kind == "sar_topo_edge_kan":
-        requested_weights = str(config.get("training", {}).get("best_weights", "raw"))
-        if requested_weights not in {"raw", "ema"}:
-            raise ValueError(
-                f"Unsupported SAR-TopoEdgeKAN best_weights value {requested_weights!r}"
-            )
-        ema_checkpoint = run / "best_ema.pth"
-        if requested_weights == "ema" and ema_checkpoint.is_file():
-            checkpoint = ema_checkpoint
-            selected_weights = "ema"
         summary = evaluate_sar_topo_edge_kan(
             config,
             checkpoint,

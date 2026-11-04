@@ -9,7 +9,6 @@
     <input_schema type="str">discuss_shared_observations</input_schema>
     <input_channels type="int">19</input_channels>
     <depth_epsilon type="float">0.001</depth_epsilon>
-    <uncertainty_scale_m type="float">0.35</uncertainty_scale_m>
     <channels type="list" item_type="int"><item>24</item><item>48</item><item>96</item><item>144</item><item>192</item></channels>
     <discuss>
       <architecture type="str">dlsim_linknet</architecture>

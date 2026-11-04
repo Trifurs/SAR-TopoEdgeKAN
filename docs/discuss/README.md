@@ -1,6 +1,6 @@
 # Publication discussion experiments
 
-These optional configurations cover input fairness (2), edge-KAN specificity (3), hydrostatic-prior and SAR contributions (4), and inference efficiency (7). New implementations, configurations, commands and tests live in the corresponding `discuss/` directories. They are opt-in and are not added to the default seven-model catalog.
+These optional configurations cover input fairness, edge-KAN specificity, hydrostatic-prior and SAR contributions, and inference efficiency. Implementations, configurations, commands and tests live in the corresponding `discuss/` directories. They are opt-in and are not added to the default seven-model catalog.
 
 All trainable configurations inherit the existing dataset contract, split, train-only normalization, augmentation, supervision domain, task-adaptive loss, AdamW settings, learning-rate schedule, batch size, epoch/early-stop rules and checkpoint selection criterion. They use the same production trainer and the same paired seed schedule. Checkpoints are selected on validation data; comparisons use the test split. No configuration changes the dataset split or adds a loss term.
 
@@ -9,10 +9,10 @@ All trainable configurations inherit the existing dataset contract, split, train
 | Group | Configurations in `configs/discuss/` | Purpose |
 |---|---|---|
 | Shared reference | `full.xml` | SAR-TopoEdgeKAN, trained through the discussion protocol. |
-| 2: input fairness | Five `*_matched.xml` comparators; shared reference | Expose every observation used by the full model to the comparator architectures. |
-| 3: edge mechanism | `no_graph.xml`, `fixed_edges.xml`, `linear_edges.xml`, `mlp_edges.xml`; shared reference | Distinguish graph aggregation, fixed topographic affinity, linear edges, nonlinear MLP edges and KAN edges. |
-| 4: prior and SAR | `prior_only.xml`, `no_prior.xml`, `terrain_only.xml`, `unet_shared_head.xml`, `unet_prior.xml`; matched U-Net and shared reference | Separate deterministic geometry, prior residual prediction, SAR observations and backbone effects. |
-| 7: efficiency | `efficiency.xml` | Common GPU measurement protocol for all unique discussion models. |
+| Input fairness | Five `*_matched.xml` comparators; shared reference | Expose every observation used by the full model to the comparator architectures. |
+| Edge mechanism | `no_graph.xml`, `fixed_edges.xml`, `linear_edges.xml`, `mlp_edges.xml`; shared reference | Distinguish graph aggregation, fixed topographic affinity, linear edges, nonlinear MLP edges and KAN edges. |
+| Prior and SAR | `prior_only.xml`, `no_prior.xml`, `terrain_only.xml`, `unet_shared_head.xml`, `unet_prior.xml`; matched U-Net and shared reference | Separate deterministic geometry, prior residual prediction, SAR observations and backbone effects. |
+| Efficiency | `efficiency.xml` | Common GPU measurement protocol for all unique discussion models. |
 
 There are **14 unique trainable configurations and one deterministic control**. References shared by several groups are deduplicated when groups are run together. Five paired seeds across all trainable configurations require 70 training jobs; the prior-only model is evaluated once.
 
@@ -42,7 +42,7 @@ The graph topology, six physical descriptors, graph stride, latent compatibility
 - `fixed_edges.xml`: remove the learned edge correction and freeze the initial physical-affinity coefficients as buffers. Observation gates, latent compatibility, message mixers and residual strength still learn; this is a fixed **topographic affinity**, not a completely fixed graph operator.
 - `no_graph.xml`: physically remove the entire graph module, including inactive parameters. This produces the same prediction path as the production graph-removal ablation while reporting its actual reduced resident size.
 
-Fixed affinity removes learning of the physical-affinity coefficients as well as the edge correction. The clean near-parameter-matched KAN-specific comparison is therefore **KAN versus MLP**, not KAN versus the fixed variant alone. The same unified objective has all graph-specific penalties disabled.
+Fixed affinity removes learning of the physical-affinity coefficients as well as the edge correction. The clean near-parameter-matched KAN-specific comparison is therefore **KAN versus MLP**, not KAN versus the fixed variant alone. All controls use only the same [shared output-depth objective](../COMPARISON_PROTOCOL.md#shared-depth-objective).
 
 ## Prior and sensor controls
 
@@ -80,7 +80,7 @@ python train.py configs/discuss/mlp_edges.xml
 
 Discussion seed campaigns are written below `runs/sar_topo_edge_kan/discuss/random_seed_validation/`. Resume a particular session with `train --seeds 5 --resume <session-directory>`; select the same groups as the original session. Existing code/config/data fingerprint checks reject incompatible resumes. The deterministic control must use the `prior` command, not `train.py` or the general seed runner.
 
-Historical ten-channel comparator scores should not be mixed with the matched-observation discussion table. Read `metrics_by_seed.csv` and `metrics_summary.csv` from a common discussion campaign.
+Do not mix ten-channel comparator scores with the matched-observation discussion table. Read `metrics_by_seed.csv` and `metrics_summary.csv` from a common discussion campaign.
 
 ## Efficiency protocol
 

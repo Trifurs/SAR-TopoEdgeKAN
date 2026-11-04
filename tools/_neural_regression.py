@@ -25,7 +25,6 @@ if str(PROJECT_ROOT) not in sys.path:
 
 import numpy as np
 import torch
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -49,7 +48,6 @@ from utils.efficiency import (
     checkpoint_size_metrics,
     model_size_metrics,
 )
-from utils.spatial_tta import spatial_tta_forward
 from utils.logging import (
     append_csv,
     configure_training_warning_filters,
@@ -118,13 +116,12 @@ def _masked_objective(
     loss_config: Mapping[str, Any],
     *,
     criterion: CompositeFloodDepthLoss | None = None,
-    epoch: int = 0,
 ) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
     if str(loss_config["objective_mode"]) != "task_adaptive":
         raise ValueError("Learned comparisons require the shared task-adaptive objective")
     if criterion is None:
         raise ValueError("The shared objective requires its train-bin criterion")
-    return criterion(outputs, batch, epoch)
+    return criterion(outputs, batch)
 
 
 def _comparison_criterion(
@@ -136,7 +133,6 @@ def _comparison_criterion(
         config["loss"],
         resolve_depth_stratification_bins(config["loss"], normalizer),
         normalizer.train_depth_bins,
-        normalizer.train_depth_bin_counts,
     ).to(device)
 
 
@@ -166,9 +162,7 @@ def evaluate_comparison_loader(
     measure_efficiency: bool = False,
     progress_label: str = "Validation",
     efficiency_warmup_batches: int | None = None,
-    tta_transforms: list[str] | tuple[str, ...] | None = None,
     criterion: CompositeFloodDepthLoss | None = None,
-    epoch: int = 0,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     model.eval()
     if criterion is None:
@@ -214,11 +208,7 @@ def evaluate_comparison_loader(
         inputs, flood_range = prepare_comparison_tensor(batch, schema)
         inference_started = efficiency.start()
         with torch.autocast(device_type=device.type, enabled=amp_enabled, dtype=amp_dtype):
-            outputs = spatial_tta_forward(
-                lambda values: model(values[0], values[1]),
-                (inputs, flood_range),
-                tta_transforms,
-            )
+            outputs = model(inputs, flood_range)
         efficiency.stop(
             inference_started,
             samples=int(outputs["depth"].shape[0]),
@@ -226,7 +216,7 @@ def evaluate_comparison_loader(
         )
         with torch.autocast(device_type=device.type, enabled=amp_enabled, dtype=amp_dtype):
             objective, _ = _masked_objective(
-                outputs, batch, config["loss"], criterion=criterion, epoch=epoch
+                outputs, batch, config["loss"], criterion=criterion
             )
         objectives.append(float(objective.detach().cpu()))
         valid = canonical_positive_mask_from_batch(batch).detach().cpu().numpy()
@@ -237,13 +227,9 @@ def evaluate_comparison_loader(
                 event_id,
                 outputs["depth"][sample_index].detach().float().cpu().numpy(),
                 batch["label"][sample_index].detach().float().cpu().numpy(),
-                outputs["uncertainty_scale"][sample_index].detach().float().cpu().numpy(),
                 valid[sample_index],
             )
     summary, samples, events, bins = aggregator.summarize()
-    summary["spatial_tta_transforms"] = list(
-        outputs.get("spatial_tta_transforms", ("identity",))
-    )
     summary.update(mask_totals)
     summary.update({
         "method": str(config["model"]["name"]),
@@ -502,7 +488,7 @@ def run_training(args: argparse.Namespace, expected_model: str) -> Path:
                 ):
                     outputs = model(inputs, flood_range)
                     loss, _ = _masked_objective(
-                        outputs, batch, config["loss"], criterion=criterion, epoch=epoch
+                        outputs, batch, config["loss"], criterion=criterion
                     )
                 if not bool(torch.isfinite(loss)):
                     raise FloatingPointError(
@@ -519,8 +505,7 @@ def run_training(args: argparse.Namespace, expected_model: str) -> Path:
                     scaler.update()
                     optimizer.zero_grad(set_to_none=True)
                     if not scaler.is_enabled() or scaler.get_scale() >= scale_before:
-                        if not isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                            scheduler.step()
+                        scheduler.step()
                         global_step += 1
                 total_loss += float(loss.detach().cpu())
                 batches += 1
@@ -554,15 +539,12 @@ def run_training(args: argparse.Namespace, expected_model: str) -> Path:
                     amp_dtype=amp_dtype,
                     progress=progress,
                     criterion=criterion,
-                    epoch=epoch,
                 )
                 summary["epoch"] = epoch
                 summary["total_parameters"] = parameters["total_parameters"]
                 summary["trainable_parameters"] = parameters["trainable_parameters"]
                 _write_evaluation(run_dir / "validation", summary, samples, events, bins, config)
                 metric_value = float(summary[monitor])
-                if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-                    scheduler.step(metric_value)
                 improved = metric_value < best - float(config["training"].get("min_delta", 0.0))
                 if improved:
                     best, best_epoch, patience = metric_value, epoch, 0
@@ -811,9 +793,7 @@ def run_evaluation_from_config(
         )
         if device.type == "cuda"
         else 0,
-        tta_transforms=config.get("inference", {}).get("tta_transforms"),
         criterion=_comparison_criterion(config, dataset.normalizer, device),
-        epoch=int(checkpoint.get("epoch", 0)),
     )
     summary["checkpoint_epoch"] = int(checkpoint.get("epoch", -1))
     summary["model_family"] = "deep_learning"

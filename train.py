@@ -36,14 +36,6 @@ from utils.run_paths import (
 
 def _main_training_args(config_path: Path, config: Mapping[str, Any], output: Path) -> Namespace:
     train = runtime_section(config, "train")
-    init_weights = str(train.get("init_weights", "raw"))
-    if init_weights not in {"raw", "ema"}:
-        raise RuntimeConfigError("runtime.train.init_weights must be 'raw' or 'ema'")
-    init_transfer = str(train.get("init_transfer", "strict"))
-    if init_transfer not in {"strict", "compatible"}:
-        raise RuntimeConfigError(
-            "runtime.train.init_transfer must be 'strict' or 'compatible'"
-        )
     return Namespace(
         config=config_path,
         device=None,
@@ -51,11 +43,6 @@ def _main_training_args(config_path: Path, config: Mapping[str, Any], output: Pa
         batch_size=None,
         num_workers=None,
         resume=optional_path(train.get("resume"), "runtime.train.resume"),
-        init_checkpoint=optional_path(
-            train.get("init_checkpoint"), "runtime.train.init_checkpoint"
-        ),
-        init_weights=init_weights,
-        init_transfer=init_transfer,
         max_train_batches=optional_nonnegative_int(
             train.get("max_train_batches"), "runtime.train.max_train_batches"
         ),
@@ -73,14 +60,6 @@ def _main_training_args(config_path: Path, config: Mapping[str, Any], output: Pa
 
 def _learned_training_args(config_path: Path, config: Mapping[str, Any], output: Path) -> Namespace:
     train = runtime_section(config, "train")
-    init_checkpoint = optional_path(
-        train.get("init_checkpoint"), "runtime.train.init_checkpoint"
-    )
-    if init_checkpoint is not None:
-        raise RuntimeConfigError(
-            "learned comparison training does not implement init_checkpoint; "
-            "use runtime.train.resume with a last_raw.pth checkpoint instead"
-        )
     return Namespace(
         config=config_path,
         device=None,

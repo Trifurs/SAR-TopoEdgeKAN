@@ -9,7 +9,6 @@
     <input_schema type="str">discuss_shared_observations</input_schema>
     <input_channels type="int">19</input_channels>
     <depth_epsilon type="float">0.001</depth_epsilon>
-    <uncertainty_scale_m type="float">0.35</uncertainty_scale_m>
     <discuss>
       <architecture type="str">resnet18_depth_regression</architecture>
     </discuss>

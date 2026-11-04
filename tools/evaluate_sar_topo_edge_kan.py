@@ -48,10 +48,6 @@ def _batch_reliability_names(batch: dict[str, Any]) -> tuple[str, ...]:
         return _batch_reliability_names({"reliability_names": metadata.get("reliability_names")})
     return RELIABILITY_NAMES
 from losses.composite_loss import CompositeFloodDepthLoss
-from losses.frozen_soft_depth_balance import (
-    FrozenSoftDepthBalance,
-    load_frozen_soft_depth_balance,
-)
 from metrics.aggregator import EvaluationAggregator
 from metrics.physical_metrics import (
     local_wse_laplacian,
@@ -74,30 +70,8 @@ from utils.misc import (
 )
 from utils.raster_io import write_geotiff
 from utils.registry import build_model
-from utils.spatial_tta import spatial_tta_forward
 
 
-def frozen_depth_balance_for_config(config: dict[str, Any]) -> FrozenSoftDepthBalance | None:
-    """Resolve the train-only frozen curve required by task-adaptive evaluation."""
-
-    loss = config.get("loss", {})
-    if not (
-        str(loss.get("objective_mode", "task_adaptive")) == "task_adaptive"
-        and bool(loss.get("soft_depth_balance", False))
-    ):
-        return None
-    path = loss.get("frozen_depth_weights_artifact")
-    if path is None and config.get("artifacts_root") is not None:
-        path = Path(config["artifacts_root"]) / "frozen_depth_weights.json"
-    if path is None:
-        raise ValueError(
-            "task-adaptive soft depth balance requires a frozen_depth_weights_artifact"
-        )
-    balance = load_frozen_soft_depth_balance(path)
-    expected = loss.get("frozen_depth_balance_sha256")
-    if expected is not None and str(expected) != balance.sha256:
-        raise ValueError("configured frozen soft-depth SHA-256 does not match artifact")
-    return balance
 from utils.visualization import save_prediction_panel
 from utils.graph_metadata import resolved_graph_identity, runtime_graph_identity
 from datasets.contract import DatasetContract, sha256_file
@@ -170,7 +144,6 @@ def evaluate_loader(
     *,
     primary_depth_bins: list[float] | None = None,
     criterion: CompositeFloodDepthLoss | None = None,
-    epoch: int = 0,
     max_batches: int | None = None,
     output_dir: Path | None = None,
     save_predictions: bool = False,
@@ -182,13 +155,11 @@ def evaluate_loader(
     measure_efficiency: bool = False,
     efficiency_warmup_batches: int | None = None,
     progress_label: str = "Evaluate",
-    tta_transforms: list[str] | tuple[str, ...] | None = None,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     model.eval()
     aggregator = EvaluationAggregator(train_depth_bins, primary_depth_bins)
     loss_values: list[float] = []
     component_values: dict[str, list[float]] = {}
-    event_depth_scales: list[float] = []
     mask_totals = {
         "valid_depth_mask_pixels": 0,
         "output_valid_pixels": 0,
@@ -235,7 +206,7 @@ def evaluate_loader(
             enabled=amp_enabled and device.type == "cuda",
             dtype=amp_dtype,
         ):
-            outputs = spatial_tta_forward(model, model_inputs, tta_transforms)
+            outputs = model(model_inputs)
         efficiency.stop(
             inference_started,
             samples=int(outputs["depth"].shape[0]),
@@ -256,7 +227,7 @@ def evaluate_loader(
             dtype=amp_dtype,
         ):
             if criterion is not None:
-                loss, components = criterion(outputs, batch, epoch)
+                loss, components = criterion(outputs, batch)
                 loss_values.append(float(loss.detach().cpu()))
                 for name, value in components.items():
                     component_values.setdefault(name, []).append(float(value.detach().cpu()))
@@ -264,13 +235,12 @@ def evaluate_loader(
         for sample_index in range(batch_size):
             prediction = outputs["depth"][sample_index].detach().float().cpu().numpy()
             conditional_depth = (
-                outputs.get("conditional_depth", outputs["positive_depth"])[sample_index]
+                outputs["conditional_depth"][sample_index]
                 .detach()
                 .float()
                 .cpu()
                 .numpy()
             )
-            scale = outputs["uncertainty_scale"][sample_index].detach().float().cpu().numpy()
             target = batch["label"][sample_index].detach().float().cpu().numpy()
             positive_mask = (
                 batch["masks"]["valid_depth_mask"][sample_index].detach().cpu().numpy() > 0.5
@@ -315,17 +285,10 @@ def evaluate_loader(
                 event_id,
                 prediction,
                 target,
-                scale,
                 metric_valid_mask,
                 sensor_day,
                 observation,
             )
-            if "event_depth_scale" in outputs:
-                event_depth_scale = float(
-                    outputs["event_depth_scale"][sample_index].detach().float().cpu()
-                )
-                row["predicted_event_depth_scale"] = event_depth_scale
-                event_depth_scales.append(event_depth_scale)
             z_hyd = outputs["physical_features"]["z_hyd"][sample_index].detach().float().cpu().numpy()
             local_relief = (
                 outputs["physical_features"]["local_relief"][sample_index]
@@ -402,21 +365,12 @@ def evaluate_loader(
                     valid_mask=output_valid,
                     descriptions=["conditional_depth_m"],
                 )
-                write_geotiff(
-                    sample_dir / "uncertainty_scale_m.tif",
-                    scale,
-                    crs=crs,
-                    transform=transform,
-                    valid_mask=output_valid,
-                    descriptions=["uncertainty_scale_m"],
-                )
                 save_prediction_panel(
                     sample_dir / "prediction_panel.png",
                     s1_change=cpu_batch["s1_change"][sample_index, 0].numpy(),
                     dsm=cpu_batch["terrain_raw"][sample_index, 0].numpy(),
                     target=target[0],
                     prediction=prediction[0],
-                    uncertainty=scale[0],
                     valid_label=canonical_mask[0],
                 )
                 atomic_write_json(sample_dir / "metrics.json", row)
@@ -442,20 +396,11 @@ def evaluate_loader(
     graph_identity = runtime_graph_identity(unwrapped)
     if graph_identity is not None:
         summary["graph_identity"] = graph_identity
-    if event_depth_scales:
-        scale_array = np.asarray(event_depth_scales, dtype=np.float64)
-        summary["event_depth_scale_mean"] = float(scale_array.mean())
-        summary["event_depth_scale_std"] = float(scale_array.std())
-        summary["event_depth_scale_min"] = float(scale_array.min())
-        summary["event_depth_scale_max"] = float(scale_array.max())
     if loss_values:
         summary["objective_mean"] = float(np.mean(loss_values))
         for name, values in component_values.items():
             summary[f"objective_{name}_mean"] = float(np.mean(values))
     summary.update(efficiency.summary())
-    summary["spatial_tta_transforms"] = list(
-        outputs.get("spatial_tta_transforms", ("identity",))
-    )
     return summary, sample_rows, event_rows, bin_rows
 
 
@@ -522,20 +467,13 @@ def run_evaluation_from_config(
         # accelerator so peak memory describes inference rather than loading.
         map_location="cpu",
     )
-    if weights == "ema":
-        ema_state = checkpoint.get("ema_model")
-        if ema_state is None:
-            raise ValueError("--weights ema requested but checkpoint has no EMA state")
-        model.load_state_dict(ema_state, strict=True)
-    elif weights != "raw":
-        raise ValueError("weights must be raw or ema")
+    if weights != "raw":
+        raise ValueError("Only raw model weights are supported")
     checkpoint_epoch = int(checkpoint.get("epoch", 0))
     normalizer = RobustNormalizer(Path(config["dataset"]["train_stats"]), dataset.contract)
     depth_bins = resolve_depth_stratification_bins(config["loss"], normalizer)
     criterion = CompositeFloodDepthLoss(
         config["loss"], depth_bins, normalizer.train_depth_bins,
-        normalizer.train_depth_bin_counts,
-        frozen_depth_balance_for_config(config),
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     summary, samples, events, bins = evaluate_loader(
@@ -545,7 +483,6 @@ def run_evaluation_from_config(
         depth_bins,
         primary_depth_bins=normalizer.train_depth_bins,
         criterion=criterion,
-        epoch=checkpoint_epoch,
         max_batches=max_batches,
         output_dir=output_dir,
         save_predictions=save_predictions,
@@ -568,7 +505,6 @@ def run_evaluation_from_config(
         if device.type == "cuda"
         else 0,
         progress_label=split.capitalize(),
-        tta_transforms=config.get("inference", {}).get("tta_transforms"),
     )
     summary["checkpoint_epoch"] = checkpoint_epoch
     summary["weights"] = weights

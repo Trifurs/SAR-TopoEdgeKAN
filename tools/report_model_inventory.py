@@ -41,11 +41,7 @@ def _learned_row(config_path: Path) -> dict[str, Any]:
         raise ValueError(f"Unsupported learned comparison configuration {config_path}: {name!r}")
     total, trainable = _count(build_comparison_model(config))
     schema = str(config["model"]["input_schema"])
-    inputs = (
-        "S1 change + DSM + valid_depth_mask"
-        if schema == "dlsim_change_dsm_range"
-        else "S1 T1/T2/change + DSM/slope + valid_depth_mask"
-    )
+    inputs = "S1 T1/T2/change + DSM/slope + valid_depth_mask"
     architecture = config["model"]
     channel_text = "/".join(str(value) for value in architecture.get("channels", ()))
     return {

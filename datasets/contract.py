@@ -18,7 +18,6 @@ REQUIRED_GROUPS = (
     "s1_change",
     "s1_qa",
 )
-MODEL_CONTINUOUS_GROUPS = ("s1_t1", "s1_t2", "s1_change", "terrain")
 
 
 class ContractError(RuntimeError):
@@ -113,10 +112,6 @@ class DatasetContract:
                 f"Band {description!r} is absent from {group}: {descriptions}"
             ) from exc
 
-    @property
-    def main_input_channels(self) -> int:
-        return sum(int(self.group(name)["band_count"]) for name in MODEL_CONTINUOUS_GROUPS)
-
     def verify_fingerprints(self, include_normalization: bool = True) -> None:
         """Fail closed when audited source files or statistics no longer match."""
 
@@ -139,6 +134,3 @@ class DatasetContract:
             selected = self.payload.get("normalization", {}).get("selected")
             if not isinstance(selected, Mapping) or not selected.get("sha256"):
                 raise ContractError("Contract has no selected normalization fingerprint")
-
-    def to_dict(self) -> dict[str, Any]:
-        return dict(self.payload)

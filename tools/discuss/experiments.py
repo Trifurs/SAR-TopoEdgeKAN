@@ -57,7 +57,7 @@ def validate_protocol(paths):
                 raise ValueError(f"{path.name} changes shared setting {key}")
         if config["runtime"]["random_seed_validation"] != reference["runtime"]["random_seed_validation"]:
             raise ValueError(f"{path.name} changes the paired seed schedule")
-        for key in ("trainable_scope", "max_train_batches", "max_val_batches"):
+        for key in ("max_train_batches", "max_val_batches"):
             if config["runtime"]["train"][key] != reference["runtime"]["train"][key]:
                 raise ValueError(f"{path.name} changes runtime.train.{key}")
         if config["dataset"] != reference["dataset"]:
@@ -66,6 +66,6 @@ def validate_protocol(paths):
             raise ValueError(f"{path.name} changes the known flood range")
         if config["runtime"]["evaluation"]["split"] != "test":
             raise ValueError(f"{path.name} does not report on the test split")
-        if config["runtime"]["train"]["init_checkpoint"] is not None:
-            raise ValueError(f"{path.name} does not train from scratch")
+        if config["runtime"]["train"]["resume"] is not None:
+            raise ValueError(f"{path.name} must not configure a different resume state")
     return reference

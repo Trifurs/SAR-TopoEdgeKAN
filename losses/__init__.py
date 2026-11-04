@@ -1,4 +1,4 @@
-"""Partial-label depth, uncertainty, and weak-physics losses."""
+"""Shared partial-label depth-regression objective."""
 
 from .composite_loss import CompositeFloodDepthLoss
 

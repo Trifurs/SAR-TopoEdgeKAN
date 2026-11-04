@@ -25,13 +25,11 @@ def _physical(batch_size: int = 2, size: int = 16) -> dict[str, torch.Tensor]:
     }
 
 
-@pytest.mark.parametrize("mode", ["full_resolution", "graph_scale"])
-def test_hydro_edge_kan_barrier_modes_preserve_contract(mode: str) -> None:
+def test_hydro_edge_kan_full_resolution_barrier_preserves_contract() -> None:
     graph = HydroEdgeKAN(
         8,
         heads=2,
         graph_feature_stride=8,
-        path_barrier_mode=mode,
     )
     features = torch.randn(2, 8, 2, 2)
     valid = torch.ones(2, 1, 16, 16)
@@ -41,9 +39,6 @@ def test_hydro_edge_kan_barrier_modes_preserve_contract(mode: str) -> None:
     assert torch.isfinite(diagnostics["graph_update_rms_ratio"])
 
 
-def test_hydro_edge_kan_rejects_unknown_barrier_mode() -> None:
-    with pytest.raises(ValueError, match="path_barrier_mode"):
-        HydroEdgeKAN(8, heads=2, path_barrier_mode="unknown")
 
 
 def test_hydro_edge_kan_eval_omits_large_training_diagnostics() -> None:
@@ -51,7 +46,6 @@ def test_hydro_edge_kan_eval_omits_large_training_diagnostics() -> None:
         8,
         heads=2,
         graph_feature_stride=8,
-        path_barrier_mode="full_resolution",
     ).eval()
     features = torch.randn(2, 8, 2, 2)
     valid = torch.ones(2, 1, 16, 16)
@@ -71,7 +65,6 @@ def test_hydro_edge_kan_has_smooth_bounded_lightweight_diffusion() -> None:
         graph_feature_stride=8,
         gamma_init_effective=0.04,
         gamma_max=0.08,
-        gamma_parameterization="positive",
     )
     features = torch.randn(2, 16, 2, 2)
     valid = torch.ones(2, 1, 16, 16)
@@ -101,7 +94,6 @@ def test_signed_zero_gamma_starts_as_identity_and_can_learn() -> None:
         graph_feature_stride=8,
         gamma_init_effective=0.0,
         gamma_max=0.04,
-        gamma_parameterization="signed",
     )
     features = torch.randn(2, 16, 2, 2, requires_grad=True)
     valid = torch.ones(2, 1, 16, 16)

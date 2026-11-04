@@ -19,8 +19,14 @@ def test_learned_catalog_uses_one_fixed_split_and_training_protocol() -> None:
         assert config["model"]["flood_support"] == "valid_depth_mask"
 
     assert reference["loss"]["objective_mode"] == "task_adaptive"
-    assert reference["loss"]["lambda_auxiliary"] == 0.0
-    assert reference["loss"]["lambda_kan"] == 0.0
+    assert set(reference["loss"]) == {
+        "objective_mode", "depth_huber_beta_m", "log_depth_huber_beta",
+        "lambda_depth", "lambda_log", "lambda_metric_pixel_mae",
+        "lambda_metric_pixel_rmse", "lambda_metric_event_mae",
+        "lambda_metric_event_rmse", "lambda_metric_event_hierarchical_mae",
+        "lambda_metric_depth_bin_rmse", "lambda_metric_event_hierarchical_rmse",
+        "lambda_depth_bias", "depth_bias_beta_m",
+    }
     assert reference["runtime"]["random_seed_validation"]["require_cuda"] is True
 
     learned_comparators = [

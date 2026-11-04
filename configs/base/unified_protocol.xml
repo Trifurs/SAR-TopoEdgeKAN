@@ -1,9 +1,7 @@
 <config>
-  <!-- Shared output-only objective: architecture-specific auxiliary and KAN penalties are disabled. -->
+  <!-- One shared output-only objective for every learned architecture. -->
   <loss>
     <objective_mode type="str">task_adaptive</objective_mode>
-    <supervised_reduction type="str">pixel_micro</supervised_reduction>
-    <depth_linear_loss type="str">smooth_l1</depth_linear_loss>
     <depth_huber_beta_m type="float">0.50</depth_huber_beta_m>
     <log_depth_huber_beta type="float">0.50</log_depth_huber_beta>
     <lambda_depth type="float">0.50</lambda_depth>
@@ -15,62 +13,8 @@
     <lambda_metric_event_hierarchical_mae type="float">0.25</lambda_metric_event_hierarchical_mae>
     <lambda_metric_depth_bin_rmse type="float">0.05</lambda_metric_depth_bin_rmse>
     <lambda_metric_event_hierarchical_rmse type="float">0.10</lambda_metric_event_hierarchical_rmse>
-    <lambda_final type="float">0.0</lambda_final>
     <lambda_depth_bias type="float">0.03</lambda_depth_bias>
     <depth_bias_beta_m type="float">0.1</depth_bias_beta_m>
-    <depth_bias_reduction type="str">event_macro</depth_bias_reduction>
-    <lambda_depth_exceedance type="float">0.0</lambda_depth_exceedance>
-    <depth_underprediction_factor type="float">1.0</depth_underprediction_factor>
-    <depth_underprediction_min_m type="float">0.50</depth_underprediction_min_m>
-    <tail_underprediction_alpha type="float">0.0</tail_underprediction_alpha>
-    <lambda_gradient type="float">0.0</lambda_gradient>
-    <lambda_auxiliary type="float">0.0</lambda_auxiliary>
-    <auxiliary_start_epoch type="int">0</auxiliary_start_epoch>
-    <auxiliary_warmup_epochs type="int">0</auxiliary_warmup_epochs>
-    <auxiliary_huber_beta_m type="float">0.50</auxiliary_huber_beta_m>
-    <auxiliary_depth_weights type="list" item_type="float"><item>1.0</item></auxiliary_depth_weights>
-    <lambda_unc type="float">0.0</lambda_unc>
-    <unc_start_epoch type="int">10</unc_start_epoch>
-    <unc_warmup_epochs type="int">3</unc_warmup_epochs>
-    <uncertainty_backprop_to_depth type="bool">false</uncertainty_backprop_to_depth>
-    <lambda_kan type="float">0.0</lambda_kan>
-    <kan_start_epoch type="int">0</kan_start_epoch>
-    <kan_warmup_epochs type="int">0</kan_warmup_epochs>
-    <lambda_kan_mono type="float">0.0</lambda_kan_mono>
-    <lambda_kan_smooth type="float">0.0</lambda_kan_smooth>
-    <lambda_wse type="float">0.0</lambda_wse>
-    <wse_mode type="str">terrain_order</wse_mode>
-    <wse_start_epoch type="int">0</wse_start_epoch>
-    <wse_warmup_epochs type="int">0</wse_warmup_epochs>
-    <lambda_absolute_laplacian type="float">0.0</lambda_absolute_laplacian>
-    <lambda_phys type="float">0.0</lambda_phys>
-    <physics_mode type="str">terrain_order_margin</physics_mode>
-    <phys_start_epoch type="int">15</phys_start_epoch>
-    <phys_warmup_epochs type="int">10</phys_warmup_epochs>
-    <physics_elevation_tolerance_m type="float">0.05</physics_elevation_tolerance_m>
-    <physics_maximum_elevation_step_m type="float">0.75</physics_maximum_elevation_step_m>
-    <physics_depth_tolerance_m type="float">0.02</physics_depth_tolerance_m>
-    <physics_order_softplus_temperature_m type="float">0.05</physics_order_softplus_temperature_m>
-    <physics_allowed_depth_jump_m type="float">0.25</physics_allowed_depth_jump_m>
-    <physics_barrier_sigma_m type="float">0.75</physics_barrier_sigma_m>
-    <physics_complexity_sigma_m type="float">12.0</physics_complexity_sigma_m>
-    <physics_maximum_complexity_m type="float">12.0</physics_maximum_complexity_m>
-    <physics_sar_compatibility_sigma type="float">1.0</physics_sar_compatibility_sigma>
-    <lambda_tail type="float">0.0</lambda_tail>
-    <tail_start_epoch type="int">0</tail_start_epoch>
-    <tail_warmup_epochs type="int">0</tail_warmup_epochs>
-    <tail_margin_m type="float">0.15</tail_margin_m>
-    <tail_huber_beta_m type="float">0.25</tail_huber_beta_m>
-    <soft_depth_balance type="bool">false</soft_depth_balance>
-    <soft_depth_balance_alpha type="float">0.5</soft_depth_balance_alpha>
-    <soft_depth_balance_tau type="float">10.0</soft_depth_balance_tau>
-    <soft_depth_balance_minimum type="float">0.5</soft_depth_balance_minimum>
-    <soft_depth_balance_maximum type="float">3.0</soft_depth_balance_maximum>
-    <frozen_depth_weights_artifact type="path">artifacts/sar_topo_edge_kan/frozen_depth_weights.json</frozen_depth_weights_artifact>
-    <schedule_total_epochs type="int">200</schedule_total_epochs>
-    <auxiliary_decay type="str">cosine</auxiliary_decay>
-    <auxiliary_decay_start_fraction type="float">0.20</auxiliary_decay_start_fraction>
-    <auxiliary_decay_end_fraction type="float">0.60</auxiliary_decay_end_fraction>
   </loss>
   <optimizer>
     <kan_lr_multiplier type="float">1.0</kan_lr_multiplier>

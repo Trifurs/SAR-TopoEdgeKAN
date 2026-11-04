@@ -39,7 +39,6 @@ def test_model_forward_on_audited_sample(production_config) -> None:
         outputs = model(model_inputs)
     assert outputs["depth"].shape == batch["label"].shape
     assert torch.isfinite(outputs["depth"]).all()
-    assert torch.isfinite(outputs["uncertainty_scale"]).all()
     support = batch["masks"]["valid_depth_mask"] > 0.5
     assert torch.all(outputs["depth"][support] > 0)
     assert torch.all(outputs["depth"][~support] == 0)

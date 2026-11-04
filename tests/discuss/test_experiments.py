@@ -142,7 +142,7 @@ def test_each_trainable_control_accepts_the_shared_loss_and_optimizer(name, real
     criterion = CompositeFloodDepthLoss(config["loss"], [0.1, 0.5, 1.0, 2.0, 100.0])
     with torch.autocast(device_type=device.type, enabled=device.type == "cuda", dtype=torch.bfloat16):
         outputs = model(inputs_for(batch, config, device))
-        loss, _ = criterion(outputs, batch, 0)
+        loss, _ = criterion(outputs, batch)
     assert torch.isfinite(loss) and loss.requires_grad
     loss.backward()
     gradients = [parameter.grad for parameter in model.parameters() if parameter.grad is not None]

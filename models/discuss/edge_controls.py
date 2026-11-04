@@ -55,10 +55,6 @@ class ControlledEdgeGraph(HydroEdgeKAN):
                 feature_scales=config["graph_feature_scales"],
                 gamma_init_effective=float(config["kan_gamma_init_effective"]),
                 gamma_max=source.gamma_max,
-                gamma_parameterization=source.gamma_parameterization,
-                latent_compatibility_enabled=source.latent_compatibility_enabled,
-                path_barrier_mode=source.path_barrier_mode,
-                drop_path_probability=source.drop_path_probability,
                 diagnostics_enabled=source.diagnostic_mode,
             )
             self.load_state_dict(source.state_dict(), strict=True)

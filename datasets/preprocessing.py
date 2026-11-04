@@ -87,13 +87,6 @@ class RobustNormalizer:
     def train_depth_bins(self) -> list[float]:
         return [float(value) for value in self.stats["train_depth"]["stratification_bin_edges"]]
 
-    @property
-    def train_depth_bin_counts(self) -> list[float] | None:
-        counts = self.stats.get("train_depth", {}).get("stratification_bin_counts")
-        if counts is None:
-            return None
-        return [float(value) for value in counts]
-
 
 def resolve_depth_stratification_bins(
     loss_config: Mapping[str, Any], normalizer: RobustNormalizer

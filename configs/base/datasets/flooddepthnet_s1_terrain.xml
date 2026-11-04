@@ -22,16 +22,12 @@
       <day_offset_by_event_duration type="bool">true</day_offset_by_event_duration>
     </normalization>
     <sampling>
-      <event_balanced type="bool">true</event_balanced>
-      <replacement type="bool">true</replacement>
       <event_balance_power type="float">0.25</event_balance_power>
     </sampling>
     <augmentation>
       <horizontal_flip_probability type="float">0.5</horizontal_flip_probability>
       <vertical_flip_probability type="float">0.5</vertical_flip_probability>
       <rotate90_probability type="float">0.25</rotate90_probability>
-      <feature_dropout_probability type="float">0.0</feature_dropout_probability>
-      <sensor_missing_simulation_probability type="float">0.0</sensor_missing_simulation_probability>
     </augmentation>
     <model_bands>
       <s1_t1 type="list"><item>VV_pre_db</item><item>VH_pre_db</item></s1_t1>

@@ -7,7 +7,7 @@ well-tested tensor assembly and repeated convolutional primitives.
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any
 
 import torch
@@ -16,7 +16,6 @@ import torch.nn.functional as F
 
 
 COMPARISON_INPUT_SCHEMAS = {
-    "dlsim_change_dsm_range": 5,
     "s1_terrain_range": 10,
 }
 
@@ -50,18 +49,8 @@ def prepare_comparison_tensor(batch: Mapping[str, Any], schema: str) -> tuple[to
         raise KeyError("Comparison networks require S1, terrain, and valid_depth_mask") from exc
     if flood_range.ndim != 4 or flood_range.shape[1] != 1:
         raise ValueError("valid_depth_mask must have shape [batch, 1, height, width]")
-    if schema == "dlsim_change_dsm_range":
-        # DLSIM starts from a change product and a DEM.  The three continuous
-        # SAR-change bands replace its simulated binary change map; elevation is
-        # the first configured terrain band (DSM), and the requested range is
-        # appended as a fifth channel.
-        tensor = torch.cat((s1_change, terrain[:, :1], flood_range), dim=1)
-    elif schema == "s1_terrain_range":
-        tensor = torch.cat((s1_t1, s1_t2, s1_change, terrain, flood_range), dim=1)
-    else:
-        comparison_input_channels(schema)
-        raise AssertionError("unreachable comparison input schema")
     expected = comparison_input_channels(schema)
+    tensor = torch.cat((s1_t1, s1_t2, s1_change, terrain, flood_range), dim=1)
     if tensor.shape[1] != expected:
         raise ValueError(
             f"Input schema {schema!r} produced {tensor.shape[1]} channels; expected {expected}"
@@ -127,11 +116,10 @@ class ResidualBlock(nn.Module):
 
 
 class DownBlock(nn.Module):
-    def __init__(self, in_channels: int, out_channels: int, residual: bool = False) -> None:
+    def __init__(self, in_channels: int, out_channels: int) -> None:
         super().__init__()
-        block = ResidualBlock if residual else DoubleConv
         self.pool = nn.MaxPool2d(2)
-        self.block = block(in_channels, out_channels)
+        self.block = DoubleConv(in_channels, out_channels)
 
     def forward(self, value: torch.Tensor) -> torch.Tensor:
         return self.block(self.pool(value))
@@ -199,25 +187,20 @@ class AttentionGate(nn.Module):
 class RangeConditionedHead(nn.Module):
     """Map spatial features to non-negative depth within a supplied flood range."""
 
-    def __init__(self, in_channels: int, *, epsilon: float, uncertainty_scale_m: float) -> None:
+    def __init__(self, in_channels: int, *, epsilon: float) -> None:
         super().__init__()
-        if epsilon <= 0.0 or uncertainty_scale_m <= 0.0:
-            raise ValueError("epsilon and uncertainty_scale_m must be positive")
+        if epsilon <= 0.0:
+            raise ValueError("epsilon must be positive")
         self.depth = nn.Conv2d(in_channels, 1, 1)
         self.epsilon = float(epsilon)
-        self.uncertainty_scale_m = float(uncertainty_scale_m)
 
     def forward(self, features: torch.Tensor, flood_range: torch.Tensor) -> dict[str, torch.Tensor]:
         conditional = F.softplus(self.depth(features)) + self.epsilon
         flood_range = (flood_range > 0.5).to(dtype=conditional.dtype)
         depth = conditional * flood_range
-        scale = torch.full_like(depth, self.uncertainty_scale_m)
         return {
             "depth": depth,
             "conditional_depth": conditional,
-            "positive_depth": conditional,
-            "expected_depth": depth,
-            "uncertainty_scale": scale,
         }
 
 
@@ -232,7 +215,6 @@ def head_from_config(in_channels: int, model_config: Mapping[str, Any]) -> Range
     return RangeConditionedHead(
         in_channels,
         epsilon=float(model_config.get("depth_epsilon", 0.001)),
-        uncertainty_scale_m=float(model_config.get("uncertainty_scale_m", 0.35)),
     )
 
 
