@@ -92,30 +92,6 @@ def test_selected_sar_view_reads_only_declared_polarization_bands(extra_band_sar
     assert valid.all()
 
 
-def test_asset_audit_keeps_only_the_declared_polarization_bands(extra_band_sar_raster) -> None:
-    from tools.prepare_flooddepthnet_s1_terrain_assets import GROUP_SPECS, RasterGroupAudit, ValueAccumulator
-
-    path, names = extra_band_sar_raster
-    audit = RasterGroupAudit("s1_t1", GROUP_SPECS["s1_t1"], reservoir_capacity=32, seed=17)
-    values, valid = audit.observe(path, "sample")
-    payload = audit.contract_payload()
-    assert values.shape == valid.shape == (2, 4, 4)
-    assert np.all(values[0] == 1) and np.all(values[1] == 2)
-    assert payload["band_count"] == 2
-    assert payload["band_descriptions"] == list(names[:2])
-    assert payload["dtypes"] == ["float32", "float32"]
-    assert len(payload["aggregate_values"]) == 2
-    assert [entry["maximum"] for entry in payload["aggregate_values"]] == [1, 2]
-    statistics = []
-    for index, name in enumerate(audit.descriptions):
-        accumulator = ValueAccumulator(32, seed=17 + index)
-        accumulator.update(values[index][valid[index]])
-        statistics.append(accumulator.summary(name, "identity"))
-    assert [entry["band"] for entry in statistics] == list(names[:2])
-    assert [entry["mean"] for entry in statistics] == [1, 2]
-    assert [entry["count"] for entry in statistics] == [16, 16]
-
-
 def test_default_runtime_band_spec_is_the_declared_sar_view(production_config) -> None:
     contract = DatasetContract.load(production_config["dataset"]["contract"])
     band_spec = resolve_band_spec(production_config, contract)

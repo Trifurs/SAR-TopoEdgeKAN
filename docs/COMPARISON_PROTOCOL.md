@@ -12,6 +12,22 @@ The `valid_depth_mask` comes from the dataset's target support. Therefore all re
 
 Traditional methods use the supplied range and DSM: FwDET v2 allocates an outer-boundary elevation, TSA fits a per-component first-degree water-surface trend, and FlDepth reconstructs from medial-ridge cross sections and bank elevations. They are included as test-only references rather than loss-controlled neural baselines.
 
+## Dataset release
+
+Use the shared `FloodDepthNet.zip` release and its `metadata/training_manifest.csv` as the authoritative fixed split:
+
+| Split | Samples | Source events |
+|---|---:|---:|
+| Train | 4,084 | 457 |
+| Validation | 584 | 65 |
+| Test | 1,167 | 130 |
+
+Each sample contains aligned pre-event SAR (two bands), event-period SAR (two bands), SAR change features (three bands), SAR quality data (two bands), DSM/slope (two bands), reconstructed depth (one band), and validity masks (four bands). The mask bands are `valid_depth_mask`, `DEM_valid_mask`, `slope_valid_mask`, and `S1_event_composite_valid_mask`. Preserve the embedded GeoTIFF masks and NoData when computing input and evaluation validity. Labels are satellite-derived reconstructed depths rather than field measurements.
+
+Follow the [dataset setup](../README.md#dataset) before starting experiments. The data-preparation command verifies the distributed files and binds their manifest, band schema and packaged training-only statistics to the runtime contract. It does not fit new normalization statistics. Repeated seeds retain the same sample membership; validation and test samples are excluded from normalization fitting.
+
+Source event IDs are disjoint between the three splits. Event-chain IDs are retained as metadata and may span splits, so these experiments do not establish independence between event chains.
+
 ## Shared depth objective
 
 Every learned model uses the same canonical supervision domain,

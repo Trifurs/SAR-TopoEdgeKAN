@@ -77,7 +77,10 @@ class DatasetContract:
 
     @property
     def dataset_root(self) -> Path:
-        return Path(str(self.payload["dataset_root"])).expanduser().resolve(strict=True)
+        root = Path(str(self.payload["dataset_root"])).expanduser()
+        if not root.is_absolute():
+            root = self.path.parent / root
+        return root.resolve(strict=True)
 
     @property
     def manifest_path(self) -> Path:

@@ -1,10 +1,10 @@
 <config>
   <dataset>
     <name type="str">flooddepthnet_s1_terrain</name>
-    <release type="str">FloodDepthNet v3 rebalanced complete release</release>
-    <root type="path">/media/whu/0d7bb559-7b14-4875-843f-08befb3ca56b/myData/FloodDepthNet</root>
+    <release type="str">FloodDepthNet</release>
+    <root type="path">data/FloodDepthNet</root>
     <contract type="path">assets/flooddepthnet_s1_terrain/dataset_contract.json</contract>
-    <manifest type="path">/media/whu/0d7bb559-7b14-4875-843f-08befb3ca56b/myData/FloodDepthNet/metadata/training_manifest.csv</manifest>
+    <manifest type="path">data/FloodDepthNet/metadata/training_manifest.csv</manifest>
     <train_stats type="path">assets/flooddepthnet_s1_terrain/train_stats.json</train_stats>
     <patch_size type="int">256</patch_size>
     <input_mode type="str">s1_terrain</input_mode>

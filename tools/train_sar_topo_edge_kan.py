@@ -433,8 +433,6 @@ def train_one_epoch(
             positive_mask = canonical_positive_mask_from_batch(batch)
             unlabeled_mask = (
                 (batch["validity"]["output_valid"] > 0.5) & ~positive_mask
-                & ~(batch["masks"]["permanent_water_mask"] > 0.5)
-                & ~(batch["masks"]["extreme_high_mask"] > 0.5)
             )
             graph_payload = {
                 key: float(value.detach().float().mean().cpu())

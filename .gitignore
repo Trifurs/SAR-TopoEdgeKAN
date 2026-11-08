@@ -8,3 +8,5 @@ artifacts/
 *.log
 /local/
 /AGENTS.md
+/data/
+/FloodDepthNet.zip

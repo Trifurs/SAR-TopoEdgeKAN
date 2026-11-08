@@ -1,14 +1,15 @@
 {
-  "dataset_root": "/media/whu/0d7bb559-7b14-4875-843f-08befb3ca56b/myData/FloodDepthNet",
+  "dataset_name": "FloodDepthNet",
+  "dataset_root": "../../data/FloodDepthNet",
   "key_file_sha256": {
-    "REBALANCED_READY.json": "384be8a68226a1d4816843221cf3521facb57e66738bc74b11f1f7aee2d42ab0",
-    "metadata/split_components.csv": "6180af5ff63b3f27b2c21dbaa37802b19725ceb0762e06c88ae7ad0d6642d88c",
-    "metadata/training_core_s1_dem.csv": "edafe33dc20318449b750cc55164e3b32f7086a167e2a510fad4093af037bdaa",
-    "metadata/training_manifest.csv": "61bb6bad24244b611409748c3a8f103457b54e6246f1901fbba43c9d809b93ae"
+    "SHA256SUMS": "2e5a9ed7ffc578ae751e006cf9b40eeaa0e5ca6e775b07cafad950ba65dbc000",
+    "metadata/dataset_info.json": "7423fd95fbe3bf29b073671a4dac9bf9645aa3a27ebbedac83809348292d8ff2",
+    "metadata/train_stats.json": "b63cf9c5e01a83e680eb0c358b260632aa6f7e84ebb5a045f5159a6b54c2e2db",
+    "metadata/training_manifest.csv": "aa999968cc259296ba86fec0d7c39f120e0cead4ae587d907ddd1178d2a32601"
   },
   "manifest": {
     "relative_path": "metadata/training_manifest.csv",
-    "sha256": "61bb6bad24244b611409748c3a8f103457b54e6246f1901fbba43c9d809b93ae"
+    "sha256": "aa999968cc259296ba86fec0d7c39f120e0cead4ae587d907ddd1178d2a32601"
   },
   "modality_policy": {
     "active_input_mode": "s1_terrain",
@@ -20,27 +21,16 @@
       "s1_change",
       "s1_qa",
       "terrain"
-    ],
-    "sentinel2": "manifest metadata only; never registered or read"
+    ]
   },
   "normalization": {
     "selected": {
       "scope": "train split only; valid pixels only; val/test excluded",
-      "sha256": "6c40ae60eed4f4eb8ee63d667125035662ac631ed57f85c616457a230f82425a"
+      "sha256": "b63cf9c5e01a83e680eb0c358b260632aa6f7e84ebb5a045f5159a6b54c2e2db"
     }
   },
   "raster_groups": {
     "label": {
-      "aggregate_values": [
-        {
-          "description": "depth_m",
-          "invalid_pixels": 350440657,
-          "maximum": 95.41999816894531,
-          "minimum": 0.10000000149011612,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 31961903
-        }
-      ],
       "band_count": 1,
       "band_descriptions": [
         "depth_m"
@@ -63,109 +53,15 @@
       "width": 256
     },
     "masks": {
-      "aggregate_values": [
-        {
-          "description": "valid_depth_mask",
-          "invalid_pixels": 0,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 382402560
-        },
-        {
-          "description": "flood_mask",
-          "invalid_pixels": 0,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 382402560
-        },
-        {
-          "description": "unknown_mask",
-          "invalid_pixels": 0,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 382402560
-        },
-        {
-          "description": "permanent_water_mask",
-          "invalid_pixels": 0,
-          "maximum": 0.0,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 382402560
-        },
-        {
-          "description": "extreme_high_mask",
-          "invalid_pixels": 0,
-          "maximum": 0.0,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 382402560
-        },
-        {
-          "description": "DEM_valid_mask",
-          "invalid_pixels": 0,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 382402560
-        },
-        {
-          "description": "slope_valid_mask",
-          "invalid_pixels": 0,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 382402560
-        },
-        {
-          "description": "persistent_water",
-          "invalid_pixels": 0,
-          "maximum": 255.0,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 382402560
-        },
-        {
-          "description": "S1_event_composite_valid_mask",
-          "invalid_pixels": 0,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 382402560
-        },
-        {
-          "description": "S2_event_composite_valid_mask",
-          "invalid_pixels": 0,
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 382402560
-        }
-      ],
-      "band_count": 10,
+      "band_count": 4,
       "band_descriptions": [
         "valid_depth_mask",
-        "flood_mask",
-        "unknown_mask",
-        "permanent_water_mask",
-        "extreme_high_mask",
         "DEM_valid_mask",
         "slope_valid_mask",
-        "persistent_water",
-        "S1_event_composite_valid_mask",
-        "S2_event_composite_valid_mask"
+        "S1_event_composite_valid_mask"
       ],
       "crs": "EPSG:27704",
       "dtypes": [
-        "uint8",
-        "uint8",
-        "uint8",
-        "uint8",
-        "uint8",
-        "uint8",
         "uint8",
         "uint8",
         "uint8",
@@ -185,50 +81,14 @@
       "width": 256
     },
     "s1_change": {
-      "aggregate_values": [
-        {
-          "description": "VV_delta_db",
-          "invalid_pixels": 2687686,
-          "maximum": 60.32246398925781,
-          "minimum": -56.91697311401367,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714874
-        },
-        {
-          "description": "VH_delta_db",
-          "invalid_pixels": 2687686,
-          "maximum": 49.05043029785156,
-          "minimum": -50.247589111328125,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714874
-        },
-        {
-          "description": "anomaly_raw",
-          "invalid_pixels": 2687686,
-          "maximum": 49.07063674926758,
-          "minimum": 0.01841691881418228,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714874
-        },
-        {
-          "description": "anomaly_selection",
-          "invalid_pixels": 2687686,
-          "maximum": 44.445960998535156,
-          "minimum": 0.3082328140735626,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714874
-        }
-      ],
-      "band_count": 4,
+      "band_count": 3,
       "band_descriptions": [
         "VV_delta_db",
         "VH_delta_db",
-        "anomaly_raw",
-        "anomaly_selection"
+        "anomaly_raw"
       ],
       "crs": "EPSG:27704",
       "dtypes": [
-        "float32",
         "float32",
         "float32",
         "float32"
@@ -247,61 +107,13 @@
       "width": 256
     },
     "s1_qa": {
-      "aggregate_values": [
-        {
-          "description": "event_observation_count",
-          "invalid_pixels": 2687918,
-          "maximum": 191.0,
-          "minimum": 1.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714642
-        },
-        {
-          "description": "selected_pre_observation_count",
-          "invalid_pixels": 2687918,
-          "maximum": 44.0,
-          "minimum": 1.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714642
-        },
-        {
-          "description": "selected_event_day_offset",
-          "invalid_pixels": 2687918,
-          "maximum": 125.71633911132812,
-          "minimum": 0.11380787193775177,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714642
-        },
-        {
-          "description": "selected_relative_orbit",
-          "invalid_pixels": 2687918,
-          "maximum": 175.0,
-          "minimum": 1.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714642
-        },
-        {
-          "description": "selected_orbit_pass_code",
-          "invalid_pixels": 2687918,
-          "maximum": 1.0,
-          "minimum": -1.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714642
-        }
-      ],
-      "band_count": 5,
+      "band_count": 2,
       "band_descriptions": [
         "event_observation_count",
-        "selected_pre_observation_count",
-        "selected_event_day_offset",
-        "selected_relative_orbit",
-        "selected_orbit_pass_code"
+        "selected_event_day_offset"
       ],
       "crs": "EPSG:27704",
       "dtypes": [
-        "float32",
-        "float32",
-        "float32",
         "float32",
         "float32"
       ],
@@ -319,24 +131,6 @@
       "width": 256
     },
     "s1_t1": {
-      "aggregate_values": [
-        {
-          "description": "VV_pre_db",
-          "invalid_pixels": 2687686,
-          "maximum": 34.35121536254883,
-          "minimum": -56.930484771728516,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714874
-        },
-        {
-          "description": "VH_pre_db",
-          "invalid_pixels": 2687686,
-          "maximum": 24.22515296936035,
-          "minimum": -67.53164672851562,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714874
-        }
-      ],
       "band_count": 2,
       "band_descriptions": [
         "VV_pre_db",
@@ -361,24 +155,6 @@
       "width": 256
     },
     "s1_t2": {
-      "aggregate_values": [
-        {
-          "description": "VV_event_db",
-          "invalid_pixels": 2687686,
-          "maximum": 35.25584030151367,
-          "minimum": -64.62641906738281,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714874
-        },
-        {
-          "description": "VH_event_db",
-          "invalid_pixels": 2687686,
-          "maximum": 26.15919303894043,
-          "minimum": -88.32127380371094,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 379714874
-        }
-      ],
       "band_count": 2,
       "band_descriptions": [
         "VV_event_db",
@@ -403,24 +179,6 @@
       "width": 256
     },
     "terrain": {
-      "aggregate_values": [
-        {
-          "description": "elevation_m_DSM",
-          "invalid_pixels": 8272499,
-          "maximum": 2627.015625,
-          "minimum": -73.84650421142578,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 374130061
-        },
-        {
-          "description": "slope_deg",
-          "invalid_pixels": 8272499,
-          "maximum": 78.73641967773438,
-          "minimum": 0.0,
-          "nonfinite_pixels": 0,
-          "valid_pixels": 374130061
-        }
-      ],
       "band_count": 2,
       "band_descriptions": [
         "elevation_m_DSM",
